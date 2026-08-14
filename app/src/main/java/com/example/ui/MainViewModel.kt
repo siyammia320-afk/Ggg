@@ -19,6 +19,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineScope
 
 import com.example.network.AppConfigService
 import kotlinx.coroutines.delay
@@ -587,7 +590,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             proxyStatus = if (useProxy) "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})..." else "CONNECTING PROXY..."
         )
 
-        viewModelScope.launch {
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 // Step 1: Connect proxy
                 if (useProxy) {
@@ -657,12 +660,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createAccount() {
         val currentState = _uiState.value
-        val phone = currentState.phoneInput.trim()
-        if (phone.isNotEmpty()) {
-            createAccountWithNumber(phone)
-        } else {
-            _uiState.value = currentState.copy(errorMessage = "Please get a number first from GET NUMBER tab!")
+        var phone = currentState.phoneInput.trim()
+        if (phone.isEmpty()) {
+            val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain", "fahimhasan", "rifatislam", "tanishaakter")
+            phone = prefixes.random() + (10000000..999999999).random() + "@hotmail.com"
+            _uiState.value = currentState.copy(phoneInput = phone)
         }
+        createAccountWithNumber(phone)
+    }
+
+    fun generateRandomHotmail() {
+        val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain", "fahimhasan", "rifatislam", "tanishaakter")
+        val prefix = prefixes.random()
+        val randomSuffix = (10000000..999999999).random()
+        val email = "$prefix$randomSuffix@hotmail.com"
+        _uiState.value = _uiState.value.copy(phoneInput = email)
     }
 
     fun onEmailChanged(email: String) {

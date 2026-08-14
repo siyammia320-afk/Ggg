@@ -562,7 +562,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "NM CREATE",
+                                text = "CREATE",
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp,
@@ -574,7 +574,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                     Tab(
                         selected = selectedTabIndex == 2,
                         onClick = { selectedTabIndex = 2 },
-                        modifier = Modifier.testTag("tab_em_create")
+                        modifier = Modifier.testTag("tab_inbox")
                     ) {
                         Row(
                             modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp),
@@ -588,7 +588,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "EM CREATE",
+                                text = "INBOX (${uiState.activeNumbers.size})",
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp,
@@ -600,32 +600,6 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                     Tab(
                         selected = selectedTabIndex == 3,
                         onClick = { selectedTabIndex = 3 },
-                        modifier = Modifier.testTag("tab_inbox")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Email,
-                                contentDescription = null,
-                                tint = if (selectedTabIndex == 3) Color(0xFF2563EB) else Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "INBOX (${uiState.activeNumbers.size})",
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = if (selectedTabIndex == 3) Color(0xFF1E293B) else Color(0xFF64748B),
-                                maxLines = 1
-                            )
-                        }
-                    }
-                    Tab(
-                        selected = selectedTabIndex == 4,
-                        onClick = { selectedTabIndex = 4 },
                         modifier = Modifier.testTag("tab_history")
                     ) {
                         Row(
@@ -636,7 +610,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                             Icon(
                                 Icons.Default.History,
                                 contentDescription = null,
-                                tint = if (selectedTabIndex == 4) Color(0xFF2563EB) else Color(0xFF64748B),
+                                tint = if (selectedTabIndex == 3) Color(0xFF2563EB) else Color(0xFF64748B),
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
@@ -644,7 +618,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp,
-                                color = if (selectedTabIndex == 4) Color(0xFF1E293B) else Color(0xFF64748B),
+                                color = if (selectedTabIndex == 3) Color(0xFF1E293B) else Color(0xFF64748B),
                                 maxLines = 1
                             )
                         }
@@ -676,22 +650,10 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         onCopyCookies = { cookie -> viewModel.copyToClipboard(context, cookie, "COOKIES") },
                         onGoToGetNumber = { selectedTabIndex = 0 },
                         onOpenProxySettings = viewModel::openProxyDialog,
-                        onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                        onCheckLive = viewModel::checkLiveStatusForSingleAccount,
+                        onGenerateRandomHotmail = viewModel::generateRandomHotmail
                     )
-                    2 -> EmailCreateTabContent(
-                        uiState = uiState,
-                        onEmailChange = viewModel::onEmailChanged,
-                        onPasswordChange = viewModel::onPasswordChanged,
-                        onCountrySelected = viewModel::onCountrySelected,
-                        onGenerateRandomEmail = viewModel::generateRandomEmail,
-                        onCreateAccountWithEmail = { viewModel.createAccountWithEmail(context) },
-                        onCopyEmail = { email -> viewModel.copyToClipboard(context, email, "EMAIL") },
-                        onCopyUid = { uid -> viewModel.copyToClipboard(context, uid, "UID") },
-                        onCopyCookies = { cookie -> viewModel.copyToClipboard(context, cookie, "COOKIES") },
-                        onOpenProxySettings = viewModel::openProxyDialog,
-                        onCheckLive = viewModel::checkLiveStatusForSingleAccount
-                    )
-                    3 -> InboxTabContent(
+                    2 -> InboxTabContent(
                         activeNumbers = uiState.activeNumbers,
                         onCopyOtp = { otp -> viewModel.copyToClipboard(context, otp, "OTP CODE") },
                         onCopyPhone = { phone -> viewModel.copyToClipboard(context, phone, "PHONE NUMBER") },
@@ -699,7 +661,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         onClearInbox = viewModel::clearInbox,
                         onReloadInbox = viewModel::manualRefreshOtps
                     )
-                    4 -> AccountHistoryTabContent(
+                    3 -> AccountHistoryTabContent(
                         accounts = accountsHistory,
                         onClearAll = viewModel::clearAllAccounts,
                         onDeleteOne = viewModel::deleteAccount,
@@ -1172,7 +1134,8 @@ fun CreateAccountTabContent(
     onCopyCookies: (String) -> Unit,
     onGoToGetNumber: () -> Unit,
     onOpenProxySettings: () -> Unit = {},
-    onCheckLive: (String) -> Unit = {}
+    onCheckLive: (String) -> Unit = {},
+    onGenerateRandomHotmail: () -> Unit = {}
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -1231,12 +1194,26 @@ fun CreateAccountTabContent(
                 modifier = Modifier.padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "⚙️ Create Account",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "⚙️ Create Account",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    OutlinedButton(
+                        onClick = onGenerateRandomHotmail,
+                        shape = RoundedCornerShape(6.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8))
+                    ) {
+                        Text("🎲 Random", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
 
                 // Phone Input (Read-only)
                 OutlinedTextField(
@@ -3136,244 +3113,7 @@ fun AppUpdateDialog(
     )
 }
 
-@Composable
-fun EmailCreateTabContent(
-    uiState: com.example.ui.AccountCreatorUiState,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onCountrySelected: (Country) -> Unit,
-    onGenerateRandomEmail: () -> Unit,
-    onCreateAccountWithEmail: () -> Unit,
-    onCopyEmail: (String) -> Unit,
-    onCopyUid: (String) -> Unit,
-    onCopyCookies: (String) -> Unit,
-    onOpenProxySettings: () -> Unit = {},
-    onCheckLive: (String) -> Unit = {}
-) {
-    var passwordVisible by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Compact Proxy Status Bar
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "🌐 Proxy: ${uiState.proxyStatus}",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-
-                IconButton(
-                    onClick = onOpenProxySettings,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = Color.LightGray,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-
-        // Main EM CREATE Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "📧 EM CREATE (Email Account)",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    OutlinedButton(
-                        onClick = onGenerateRandomEmail,
-                        shape = RoundedCornerShape(6.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8))
-                    ) {
-                        Text("🎲 Random Email", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // Email Input
-                OutlinedTextField(
-                    value = uiState.emailInput,
-                    onValueChange = onEmailChange,
-                    placeholder = { Text("e.g. alihasanmiya282527526@gmail.com", color = Color.Gray, fontSize = 11.sp) },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp)) },
-                    trailingIcon = {
-                        if (uiState.emailInput.isNotBlank()) {
-                            IconButton(onClick = { onCopyEmail(uiState.emailInput) }) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Email", tint = Color(0xFF38BDF8), modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF38BDF8),
-                        unfocusedBorderColor = Color(0xFF2D2D2D),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Country Selector Dropdown
-                CountryDropdownSelector(
-                    selectedCountry = uiState.selectedCountry,
-                    enabled = true,
-                    onCountrySelected = onCountrySelected
-                )
-
-                // Password Input
-                OutlinedTextField(
-                    value = uiState.passwordInput,
-                    onValueChange = onPasswordChange,
-                    enabled = true,
-                    placeholder = { Text("Password (default: Pass123456)", color = Color.Gray, fontSize = 11.sp) },
-                    leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp)) },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }, modifier = Modifier.size(24.dp)) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = null,
-                                tint = Color.Gray,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.LightGray,
-                        unfocusedBorderColor = Color(0xFF2D2D2D),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // EM CREATE Button
-                Button(
-                    onClick = onCreateAccountWithEmail,
-                    enabled = !uiState.isCreating,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
-                        disabledContainerColor = Color(0xFF2D2D2D)
-                    ),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp)
-                ) {
-                    if (uiState.isCreating) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                            Text("CREATING EMAIL ACC...", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Text("⚡ EM CREATE (Auto Copy Email)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Result Card
-        uiState.lastCreatedAccount?.let { account ->
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("✅ Email Account Created!", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Green)
-                    Text("Email: ${account.phone}", fontSize = 11.sp, color = Color.White)
-                    Text("UID: ${account.uid}", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Button(
-                            onClick = { onCopyUid(account.uid) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
-                            shape = RoundedCornerShape(4.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                            modifier = Modifier.weight(1f).height(32.dp)
-                        ) {
-                            Text("COPY UID", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-
-                        Button(
-                            onClick = { onCopyCookies(account.cookies) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
-                            shape = RoundedCornerShape(4.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                            modifier = Modifier.weight(1f).height(32.dp)
-                        ) {
-                            Text("COPY COOKIES", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Button(
-                        onClick = { onCheckLive(account.uid) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.fillMaxWidth().height(34.dp)
-                    ) {
-                        Text("Live Check ⚡", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
-}
 
 
 
