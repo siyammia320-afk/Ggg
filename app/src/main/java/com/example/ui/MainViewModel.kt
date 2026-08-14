@@ -50,6 +50,7 @@ data class VoltxActiveNumber(
 
 data class AccountCreatorUiState(
     val phoneInput: String = "",
+    val emailInput: String = "",
     val passwordInput: String = "",
     val selectedCountry: Country = Country.BANGLADESH,
     val isCreating: Boolean = false,
@@ -661,6 +662,100 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             createAccountWithNumber(phone)
         } else {
             _uiState.value = currentState.copy(errorMessage = "Please get a number first from GET NUMBER tab!")
+        }
+    }
+
+    fun onEmailChanged(email: String) {
+        _uiState.value = _uiState.value.copy(emailInput = email)
+    }
+
+    fun generateRandomEmail() {
+        val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain", "fahimhasan", "rifatislam", "tanishaakter")
+        val prefix = prefixes.random()
+        val randomSuffix = (10000000..999999999).random()
+        val email = "$prefix$randomSuffix@gmail.com"
+        _uiState.value = _uiState.value.copy(emailInput = email)
+    }
+
+    fun createAccountWithEmail(context: Context) {
+        val currentState = _uiState.value
+        var email = currentState.emailInput.trim()
+        if (email.isEmpty()) {
+            val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain")
+            email = prefixes.random() + (10000000..999999999).random() + "@gmail.com"
+            _uiState.value = _uiState.value.copy(emailInput = email)
+        }
+
+        // Auto copy email to clipboard
+        copyToClipboard(context, email, "EMAIL")
+
+        val password = currentState.passwordInput.ifEmpty { "Pass123456" }
+        val useProxy = currentState.isProxyEnabled && currentState.proxyServer.isNotBlank() && currentState.proxyPort.isNotBlank()
+
+        val proxyServerToUse = if (useProxy) currentState.proxyServer else ""
+        val proxyPortToUse = if (useProxy) currentState.proxyPort else ""
+        val proxyUserToUse = if (useProxy) currentState.proxyUsername else ""
+        val proxyPassToUse = if (useProxy) currentState.proxyPassword else ""
+
+        _uiState.value = currentState.copy(
+            isCreating = true,
+            errorMessage = null,
+            proxyStatus = if (useProxy) "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})..." else "CONNECTING PROXY..."
+        )
+
+        viewModelScope.launch {
+            try {
+                if (useProxy) {
+                    delay(500)
+                    _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
+                } else {
+                    delay(500)
+                    _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
+                }
+
+                delay(2000)
+
+                val result = FbAccountService.createAccount(
+                    phoneInput = email,
+                    passwordInput = password,
+                    country = currentState.selectedCountry,
+                    proxyServer = proxyServerToUse,
+                    proxyPort = proxyPortToUse,
+                    proxyUsername = proxyUserToUse,
+                    proxyPassword = proxyPassToUse,
+                    customUserAgent = currentState.customUserAgent,
+                    isCustomUserAgentEnabled = currentState.isCustomUserAgentEnabled
+                )
+
+                if (result.success) {
+                    val entity = AccountEntity(
+                        phone = email,
+                        uid = result.uid,
+                        name = result.name,
+                        password = result.password,
+                        cookies = result.cookies
+                    )
+                    val newId = accountDao.insertAccount(entity)
+                    val savedEntity = entity.copy(id = newId)
+
+                    appendRecordToCsv(result.uid, result.password, result.cookies)
+
+                    _uiState.value = _uiState.value.copy(
+                        isCreating = false,
+                        lastCreatedAccount = savedEntity,
+                        successMessage = "Email Account Created! UID: ${result.uid}. Email auto-copied!"
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isCreating = false,
+                        errorMessage = "Account Creation Failed: ${result.error}"
+                    )
+                }
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    proxyStatus = "DISCONNECTED (AUTO OFF)"
+                )
+            }
         }
     }
 

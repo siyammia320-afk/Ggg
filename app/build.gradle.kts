@@ -17,8 +17,8 @@ android {
     applicationId = "boom.fb.tool"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "2.1"
+    versionCode = 4
+    versionName = "3.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
