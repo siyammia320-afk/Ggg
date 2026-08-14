@@ -50,7 +50,7 @@ object FbAccountService {
         val day = Random.nextInt(1, 29)
         val month = Random.nextInt(1, 13)
         val year = Random.nextInt(1980, 2006)
-        val phone = phoneInput.replace(Regex("[^0-9]"), "")
+        val phone = if (phoneInput.contains("@")) phoneInput.trim() else phoneInput.replace(Regex("[^0-9]"), "")
 
         // Configure OkHttpClient with Proxy if provided
         val activeClient = if (proxyServer.isNotBlank() && proxyPort.isNotBlank()) {
