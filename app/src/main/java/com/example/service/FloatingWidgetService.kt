@@ -350,11 +350,10 @@ class FloatingWidgetService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
 fun FloatingBubbleContent() {
     Box(
         modifier = Modifier
-            .size(62.dp)
+            .size(52.dp)
             .clip(CircleShape)
-            .background(Color(0xFF0284C7))
-            .border(2.5.dp, Color(0xFF38BDF8), CircleShape)
-            .padding(2.dp),
+            .background(Color(0xFF1E293B))
+            .border(1.5.dp, Color(0xFF38BDF8), CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -362,14 +361,14 @@ fun FloatingBubbleContent() {
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "ARAFAT",
-                fontSize = 9.sp,
+                text = "FB",
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 color = Color.White
             )
             Text(
-                text = "FB ⚡",
-                fontSize = 11.sp,
+                text = "TOOL 💣",
+                fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF38BDF8)
             )
@@ -385,7 +384,7 @@ fun FloatingDialogOverlayContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.35f))
+            .background(Color.Black.copy(alpha = 0.25f))
             .clickable(
                 onClick = onCloseClick,
                 indication = null,
@@ -395,88 +394,74 @@ fun FloatingDialogOverlayContent(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.90f)
+                .fillMaxWidth(0.96f)
+                .fillMaxHeight(0.92f)
                 .clickable(
-                    onClick = { /* consume clicks inside overlay dialog card */ },
+                    onClick = { /* consume clicks */ },
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 )
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(20.dp)),
-            color = Color.White
+                .clip(RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp)),
+            color = Color.White,
+            shadowElevation = 4.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header Bar
+                // Featherlight Header Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFF1F5F9))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .background(Color(0xFF0F172A))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF2563EB)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("FB", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-
+                        Text("💣", fontSize = 14.sp)
                         Text(
-                            text = "ARAFAT FB CREATOR",
-                            fontSize = 14.sp,
+                            text = "FB TOOL",
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = Color.White
                         )
                     }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // STOP SERVICE button inside dialog header
+                        // Stop Floating Widget Button
                         IconButton(
                             onClick = onStopServiceClick,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFEE2E2))
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Stop,
                                 contentDescription = "Stop Service",
-                                tint = Color(0xFFEF4444),
-                                modifier = Modifier.size(18.dp)
+                                tint = Color(0xFFF87171),
+                                modifier = Modifier.size(16.dp)
                             )
                         }
 
-                        // CLOSE (X) button inside dialog header
+                        // Close Dialog Button
                         IconButton(
                             onClick = onCloseClick,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE2E8F0))
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Close Dialog",
-                                tint = Color(0xFF1E293B),
-                                modifier = Modifier.size(20.dp)
+                                contentDescription = "Close",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
                 }
 
-                // Body Content (Full App)
+                // Body Content
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

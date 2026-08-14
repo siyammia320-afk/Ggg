@@ -7,7 +7,7 @@ enum class Country(
     val names: List<String>
 ) {
     BANGLADESH("BD", "Bangladesh", "🇧🇩", listOf(
-        "Arafat Hossain", "Siam Ahmed", "Rakib Hasan", "Tanvir Islam", "Nayeem Hossain",
+        "Siam Ahmed", "Rakib Hasan", "Tanvir Islam", "Nayeem Hossain",
         "Mahfuzur Rahman", "Sakib Ahmed", "Imran Hossain", "Fahim Hasan", "Rifat Islam",
         "Shakil Ahmed", "Touhidul Islam", "Mehedi Hasan", "Rayhan Hossain", "Jubayer Ahmed",
         "Nazmul Hasan", "Sabbir Rahman", "Adnan Hossain", "Hasan Mahmud", "Nasir Uddin",

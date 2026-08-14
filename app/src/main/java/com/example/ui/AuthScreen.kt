@@ -75,7 +75,7 @@ fun AuthScreen(
             }
 
             Text(
-                text = "ARAFAT FB CREATOR",
+                text = "FB TOOL 💣💥",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0F172A),

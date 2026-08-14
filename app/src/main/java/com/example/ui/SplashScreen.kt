@@ -118,10 +118,10 @@ fun SplashScreen(onFinished: () -> Unit) {
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Text: ARAFAT FB CREATTOR
+            // Text: FB TOOL 💣💥
             Text(
-                text = "ARAFAT FB CREATTOR",
-                fontSize = 24.sp,
+                text = "FB TOOL 💣💥",
+                fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.SansSerif,
                 letterSpacing = 1.5.sp,
