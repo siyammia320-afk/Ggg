@@ -797,115 +797,106 @@ fun GetNumberTabContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // ✍️ Custom Range Input Card
+        // ✍️ Compact Custom Range Input & GET Bar
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(10.dp))
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF2563EB)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Phone,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "✍️ Custom Range / নিজের রেঞ্জ",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "রেঞ্জ লিখে GET বাটনে চাপ দিন (যেমন: 2250689XXXX)",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFF94A3B8)
-                                )
-                            }
-                        }
+                        Icon(
+                            Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = Color(0xFF38BDF8),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "✍️ Custom Range / নিজের রেঞ্জ",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "(যেমন: 2250689XXXX)",
+                            fontSize = 10.sp,
+                            color = Color(0xFF94A3B8)
+                        )
                     }
 
-                    OutlinedTextField(
-                        value = uiState.customRangeInput,
-                        onValueChange = onCustomRangeChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("custom_range_input"),
-                        placeholder = {
-                            Text("e.g. 2250689XXXX বা 88017XXXXXXXX", color = Color(0xFF64748B), fontSize = 13.sp)
-                        },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3B82F6),
-                            unfocusedBorderColor = Color(0xFF475569),
-                            focusedContainerColor = Color(0xFF0F172A),
-                            unfocusedContainerColor = Color(0xFF0F172A)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        leadingIcon = {
-                            Icon(Icons.Default.Phone, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(18.dp))
-                        },
-                        trailingIcon = {
-                            if (uiState.customRangeInput.isNotEmpty()) {
-                                IconButton(onClick = { onCustomRangeChange("") }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color(0xFF94A3B8), modifier = Modifier.size(18.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = uiState.customRangeInput,
+                            onValueChange = onCustomRangeChange,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .testTag("custom_range_input"),
+                            placeholder = {
+                                Text("2250689XXXX", color = Color(0xFF64748B), fontSize = 12.sp)
+                            },
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.SemiBold),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF38BDF8),
+                                unfocusedBorderColor = Color(0xFF475569),
+                                focusedContainerColor = Color(0xFF0F172A),
+                                unfocusedContainerColor = Color(0xFF0F172A)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            trailingIcon = {
+                                if (uiState.customRangeInput.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { onCustomRangeChange("") },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
 
-                    // GET Button
-                    Button(
-                        onClick = onFetchCustomRange,
-                        enabled = !uiState.isFetchingNumber && !uiState.isCreating,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .testTag("get_custom_range_button")
-                    ) {
-                        if (uiState.isFetchingNumber && uiState.selectedRangeCode == uiState.customRangeInput) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("GETTING NUMBER...", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                Text("GET NUMBER FROM RANGE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        // Compact GET Button
+                        Button(
+                            onClick = onFetchCustomRange,
+                            enabled = !uiState.isFetchingNumber && !uiState.isCreating,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier
+                                .height(50.dp)
+                                .testTag("get_custom_range_button")
+                        ) {
+                            if (uiState.isFetchingNumber && uiState.selectedRangeCode == uiState.customRangeInput) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Text("GET", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
                             }
                         }
                     }
