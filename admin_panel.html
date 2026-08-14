@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARAFAT FB CREATOR - Admin Panel</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #0f172a, #020617);
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.45);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-12">
+
+    <!-- Header Section -->
+    <header class="border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-sky-500 to-indigo-600 p-2.5 rounded-xl shadow-lg shadow-sky-500/20">
+                    <i class="fa-solid fa-users-gear text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                        ARAFAT FB CREATOR Admin Panel
+                    </h1>
+                    <p class="text-xs text-sky-400 font-medium">System Configuration, Wallet, & User Control</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden md:block">
+                    <span class="block text-xs text-slate-400">Database Connection</span>
+                    <span class="text-xs text-emerald-400 font-semibold flex items-center justify-end">
+                        <span class="h-2 w-2 rounded-full bg-emerald-500 inline-block mr-1.5 animate-pulse"></span>
+                        Active (fb-virul-tools)
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        
+        <!-- Controls & Configuration Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Set OTP Price Card -->
+            <div class="glass-card p-6 rounded-2xl shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Set OTP Price (৳)</span>
+                    <div class="bg-indigo-500/10 p-2 rounded-lg">
+                        <i class="fa-solid fa-bangladeshi-taka-sign text-indigo-400"></i>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <input type="number" id="otp-price-input" step="0.01" min="0" placeholder="e.g. 0.50" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all">
+                    <button onclick="saveOtpPrice()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-xl transition-all text-xs">
+                        SAVE PRICE
+                    </button>
+                </div>
+            </div>
+
+            <!-- App Status Card (On/Off) -->
+            <div class="glass-card p-6 rounded-2xl shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">App Status Control</span>
+                    <div class="bg-sky-500/10 p-2 rounded-lg">
+                        <i class="fa-solid fa-power-off text-sky-400"></i>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-2 bg-slate-900/40 rounded-xl border border-slate-800">
+                        <span class="text-xs font-semibold text-slate-300">App On/Off</span>
+                        <button id="btn-app-toggle" onclick="toggleAppStatus()" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-500">
+                            ON
+                        </button>
+                    </div>
+                    <input type="text" id="app-notice-input" placeholder="Maintenance Notice Message" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all">
+                    <button onclick="saveAppConfig()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 rounded-xl transition-all text-xs">
+                        SAVE APP CONFIG
+                    </button>
+                </div>
+            </div>
+
+            <!-- Total Users Card -->
+            <div class="glass-card p-6 rounded-2xl flex items-center justify-between shadow-xl">
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Active Users</span>
+                    <h3 id="stat-total-users" class="text-3xl font-bold mt-1 text-white">0</h3>
+                </div>
+                <div class="bg-emerald-500/10 p-3 rounded-xl">
+                    <i class="fa-solid fa-users text-2xl text-emerald-400"></i>
+                </div>
+            </div>
+
+            <!-- Total Pending Withdrawals -->
+            <div class="glass-card p-6 rounded-2xl flex items-center justify-between shadow-xl">
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Pending Withdraws</span>
+                    <h3 id="stat-pending-withdrawals" class="text-3xl font-bold mt-1 text-amber-400">0</h3>
+                </div>
+                <div class="bg-amber-500/10 p-3 rounded-xl">
+                    <i class="fa-solid fa-wallet text-2xl text-amber-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Withdrawals & Users Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Pending Withdrawals List (Html formatted table) -->
+            <div class="lg:col-span-12">
+                <div class="glass-card rounded-2xl shadow-xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-800/60 bg-slate-900/20 flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-white flex items-center">
+                            <i class="fa-solid fa-clock-rotate-left text-amber-400 mr-2"></i> Pending Withdrawals
+                        </h2>
+                        <button onclick="fetchWithdrawals()" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-xl border border-slate-700 text-slate-300 hover:text-white transition-all text-xs">
+                            <i class="fa-solid fa-rotate mr-1"></i> Refresh
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-[400px]">
+                        <table class="min-w-full divide-y divide-slate-800/60">
+                            <thead class="bg-slate-950/45 sticky top-0 z-10 backdrop-blur-md">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">User Details</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Withdraw Method</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Payout Target</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Requested Amount</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
+                                    <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="withdrawals-tbody" class="divide-y divide-slate-800/40 bg-slate-900/10">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-slate-500 text-sm">
+                                        <i class="fa-solid fa-circle-notch animate-spin text-xl text-sky-500 mb-2"></i>
+                                        <p>Loading Pending Withdrawals...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Directory List -->
+            <div class="lg:col-span-12">
+                <div class="glass-card rounded-2xl shadow-xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-800/60 bg-slate-900/20 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <h2 class="text-lg font-bold text-white flex items-center">
+                            <i class="fa-solid fa-user-group text-sky-400 mr-2"></i> Users Database & Directory
+                        </h2>
+
+                        <!-- Users Search -->
+                        <div class="flex items-center space-x-3 w-full sm:w-auto">
+                            <div class="relative w-full sm:w-64">
+                                <input type="text" id="user-search" oninput="filterUsers()" placeholder="Search users by name, telegram, email..." class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all">
+                                <i class="fa-solid fa-search absolute left-3.5 top-3 text-xs text-slate-500"></i>
+                            </div>
+                            <button onclick="fetchUsers()" class="bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl border border-slate-700 text-slate-300 hover:text-white transition-all">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-[500px]">
+                        <table class="min-w-full divide-y divide-slate-800/60">
+                            <thead class="bg-slate-950/45 sticky top-0 z-10 backdrop-blur-md">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">User Name</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Email Address</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Telegram Username</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Current Balance</th>
+                                    <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Modify Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-tbody" class="divide-y divide-slate-800/40 bg-slate-900/10">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-12 text-center text-slate-500 text-sm">
+                                        <i class="fa-solid fa-circle-notch animate-spin text-xl text-sky-500 mb-2"></i>
+                                        <p>Loading User Directory...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-24 opacity-0 transition-all duration-300 max-w-sm glass-card px-5 py-4 rounded-xl shadow-2xl flex items-center space-x-3 border border-slate-700/60 z-50">
+        <div id="toast-icon" class="h-8 w-8 rounded-full flex items-center justify-center text-white"></div>
+        <div>
+            <h4 id="toast-title" class="text-sm font-bold text-white">Notification</h4>
+            <p id="toast-msg" class="text-xs text-slate-400 mt-0.5">Details of operation.</p>
+        </div>
+    </div>
+
+    <!-- Script Section -->
+    <script>
+        const FIREBASE_DB_URL = "https://fb-virul-tools-default-rtdb.firebaseio.com";
+        let isAppOnValue = true;
+        let usersData = {};
+        let withdrawalsData = {};
+
+        // On Page Load
+        window.addEventListener('DOMContentLoaded', () => {
+            initDashboard();
+        });
+
+        async function initDashboard() {
+            await fetchAppConfig();
+            await fetchOtpPrice();
+            await fetchWithdrawals();
+            await fetchUsers();
+        }
+
+        // Fetch App config (On/Off toggle and status notice)
+        async function fetchAppConfig() {
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/app_config.json`);
+                const config = await res.json() || {};
+                isAppOnValue = config.isAppOn !== false;
+                
+                const btn = document.getElementById('btn-app-toggle');
+                if (isAppOnValue) {
+                    btn.innerText = "ON";
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-500";
+                } else {
+                    btn.innerText = "OFF";
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-rose-600 text-white hover:bg-rose-500";
+                }
+
+                document.getElementById('app-notice-input').value = config.notice || "";
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function toggleAppStatus() {
+            isAppOnValue = !isAppOnValue;
+            const btn = document.getElementById('btn-app-toggle');
+            if (isAppOnValue) {
+                btn.innerText = "ON";
+                btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-500";
+            } else {
+                btn.innerText = "OFF";
+                btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-rose-600 text-white hover:bg-rose-500";
+            }
+        }
+
+        async function saveAppConfig() {
+            const noticeVal = document.getElementById('app-notice-input').value;
+            const payload = {
+                isAppOn: isAppOnValue,
+                status: isAppOnValue ? "on" : "off",
+                notice: noticeVal || "অ্যাপ বর্তমানে এডমিন দ্বারা বন্ধ রাখা হয়েছে।"
+            };
+
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/app_config.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showToast("App Config Saved", "App status and notice updated successfully!", "success");
+                }
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            }
+        }
+
+        // Fetch & Save OTP Price
+        async function fetchOtpPrice() {
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/otp_price.json`);
+                const price = await res.json();
+                document.getElementById('otp-price-input').value = price !== null ? price : 0.5;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function saveOtpPrice() {
+            const priceVal = parseFloat(document.getElementById('otp-price-input').value);
+            if (isNaN(priceVal)) {
+                showToast("Invalid Price", "Please enter a valid number for OTP Price", "error");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/otp_price.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(priceVal)
+                });
+                if (res.ok) {
+                    showToast("OTP Price Saved", `OTP successfully priced at ${priceVal} TK!`, "success");
+                }
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            }
+        }
+
+        // Fetch User Database
+        async function fetchUsers() {
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/users.json`);
+                const data = await res.json() || {};
+                usersData = data;
+                renderUsers(data);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('users-tbody');
+            tbody.innerHTML = '';
+
+            const keys = Object.keys(users);
+            document.getElementById('stat-total-users').innerText = keys.length;
+
+            if (keys.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 text-center text-slate-500 text-sm">No registered users found.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            keys.forEach(sanitizedEmail => {
+                const item = users[sanitizedEmail];
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/15 transition-all";
+
+                const emailVal = item.email || sanitizedEmail.replace(/_dot_/g, '.').replace(/_at_/g, '@');
+                const name = `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'No Name';
+                const telegram = item.telegramUsername ? `@${item.telegramUsername}` : 'N/A';
+                const balance = item.balance !== undefined ? parseFloat(item.balance).toFixed(2) : '0.00';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-white">${name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-300">${emailVal}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-sky-400 font-medium">${telegram}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-400">${balance} ৳</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-xs">
+                        <div class="flex items-center justify-center space-x-2">
+                            <input type="number" id="mod-bal-${sanitizedEmail}" placeholder="Set Balance" step="0.1" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 w-24 text-xs text-white">
+                            <button onclick="modifyUserBalance('${sanitizedEmail}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded text-xs font-bold">Update</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterUsers() {
+            const query = document.getElementById('user-search').value.trim().toLowerCase();
+            if (!query) {
+                renderUsers(usersData);
+                return;
+            }
+
+            const filtered = {};
+            Object.keys(usersData).forEach(key => {
+                const user = usersData[key];
+                const email = (user.email || '').toLowerCase();
+                const firstName = (user.firstName || '').toLowerCase();
+                const lastName = (user.lastName || '').toLowerCase();
+                const name = `${firstName} ${lastName}`;
+                const telegram = (user.telegramUsername || '').toLowerCase();
+
+                if (email.includes(query) || name.includes(query) || telegram.includes(query)) {
+                    filtered[key] = user;
+                }
+            });
+            renderUsers(filtered);
+        }
+
+        async function modifyUserBalance(sanitizedEmail) {
+            const input = document.getElementById(`mod-bal-${sanitizedEmail}`);
+            const newVal = parseFloat(input.value);
+            if (isNaN(newVal)) {
+                showToast("Input Error", "Please enter a valid balance amount", "error");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/users/${sanitizedEmail}/balance.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newVal)
+                });
+                if (res.ok) {
+                    showToast("Balance Updated", "User balance was updated successfully", "success");
+                    input.value = "";
+                    fetchUsers();
+                }
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            }
+        }
+
+        // Fetch Withdrawals Database
+        async function fetchWithdrawals() {
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/withdrawals.json`);
+                const data = await res.json() || {};
+                withdrawalsData = data;
+                renderWithdrawals(data);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderWithdrawals(withdrawals) {
+            const tbody = document.getElementById('withdrawals-tbody');
+            tbody.innerHTML = '';
+
+            const keys = Object.keys(withdrawals);
+            const pendingCount = keys.filter(k => withdrawals[k].status === 'pending').length;
+            document.getElementById('stat-pending-withdrawals').innerText = pendingCount;
+
+            if (keys.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-slate-500 text-sm">No withdrawal requests found.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Show latest first
+            keys.reverse().forEach(id => {
+                const item = withdrawals[id];
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/15 transition-all";
+
+                const isPending = item.status === 'pending';
+                let statusBadge = '';
+                if (item.status === 'pending') {
+                    statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Pending ⏳</span>`;
+                } else if (item.status === 'complete' || item.status === 'approved') {
+                    statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Complete ✅</span>`;
+                } else {
+                    statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Rejected ❌</span>`;
+                }
+
+                const actionButtons = isPending ? `
+                    <div class="flex items-center justify-center space-x-2">
+                        <button onclick="approveWithdrawal('${id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center">
+                            <i class="fa-solid fa-check mr-1"></i> Approve
+                        </button>
+                        <button onclick="rejectWithdrawal('${id}')" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center">
+                            <i class="fa-solid fa-times mr-1"></i> Reject
+                        </button>
+                    </div>
+                ` : `<span class="text-xs text-slate-500 italic">No actions needed</span>`;
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-bold text-white">${item.name}</div>
+                        <div class="text-xs text-slate-400">${item.email}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs font-bold text-indigo-400">${item.method}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs font-semibold text-slate-300 font-mono">${item.value}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-400">${parseFloat(item.amount).toFixed(2)} ৳</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${statusBadge}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">${actionButtons}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function approveWithdrawal(id) {
+            if (!confirm("Are you sure you want to Approve this withdrawal request?")) return;
+
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/withdrawals/${id}/status.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify("complete")
+                });
+                if (res.ok) {
+                    showToast("Approved Successfully", "The payout was marked as Complete!", "success");
+                    fetchWithdrawals();
+                }
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            }
+        }
+
+        async function rejectWithdrawal(id) {
+            if (!confirm("Are you sure you want to Reject this withdrawal request? This will refund the amount back to the user's balance.")) return;
+
+            try {
+                // Fetch details of this withdrawal to know email and amount to refund
+                const detailsRes = await fetch(`${FIREBASE_DB_URL}/withdrawals/${id}.json`);
+                const item = await detailsRes.json();
+                if (!item) return;
+
+                const email = item.email;
+                const refundAmount = parseFloat(item.amount) || 0;
+
+                // Sanitize user email to find them
+                const sanitized = email.trim().toLowerCase().replace(/\./g, '_dot_').replace(/@/g, '_at_');
+
+                // Get current balance
+                const balRes = await fetch(`${FIREBASE_DB_URL}/users/${sanitized}/balance.json`);
+                const currentBalance = await balRes.json() || 0;
+
+                // Refund balance
+                const newBalance = parseFloat(currentBalance) + refundAmount;
+                await fetch(`${FIREBASE_DB_URL}/users/${sanitized}/balance.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newBalance)
+                });
+
+                // Update status to rejected
+                const res = await fetch(`${FIREBASE_DB_URL}/withdrawals/${id}/status.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify("rejected")
+                });
+
+                if (res.ok) {
+                    showToast("Rejected & Refunded", `The payout request was rejected and ${refundAmount} ৳ was refunded to the user!`, "success");
+                    fetchWithdrawals();
+                    fetchUsers();
+                }
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            }
+        }
+
+        // Show Beautiful Toast Notifications
+        function showToast(title, msg, type) {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toast-icon');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMsg = document.getElementById('toast-msg');
+
+            // Setup styling based on type
+            if (type === 'success') {
+                toastIcon.className = "h-8 w-8 rounded-full flex items-center justify-center text-white bg-emerald-500 shadow-md";
+                toastIcon.innerHTML = `<i class="fa-solid fa-check"></i>`;
+                toastTitle.className = "text-sm font-bold text-emerald-400";
+            } else if (type === 'error') {
+                toastIcon.className = "h-8 w-8 rounded-full flex items-center justify-center text-white bg-rose-500 shadow-md";
+                toastIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+                toastTitle.className = "text-sm font-bold text-rose-400";
+            } else if (type === 'info') {
+                toastIcon.className = "h-8 w-8 rounded-full flex items-center justify-center text-white bg-sky-500 shadow-md";
+                toastIcon.innerHTML = `<i class="fa-solid fa-circle-info"></i>`;
+                toastTitle.className = "text-sm font-bold text-sky-400";
+            }
+
+            toastTitle.innerText = title;
+            toastMsg.innerText = msg;
+
+            // Trigger animation in
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            // Trigger animation out after 3.5 seconds
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
