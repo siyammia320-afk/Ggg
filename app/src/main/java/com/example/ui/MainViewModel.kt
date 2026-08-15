@@ -658,6 +658,88 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun createAccountOfficial(context: Context) {
+        val currentState = _uiState.value
+        val phone = currentState.phoneInput.trim()
+        if (phone.isEmpty()) {
+            _uiState.value = currentState.copy(errorMessage = "Please get a number first")
+            return
+        }
+
+        val useProxy = currentState.isProxyEnabled && currentState.proxyServer.isNotBlank() && currentState.proxyPort.isNotBlank()
+        val proxyServerToUse = if (useProxy) currentState.proxyServer else ""
+        val proxyPortToUse = if (useProxy) currentState.proxyPort else ""
+        val proxyUserToUse = if (useProxy) currentState.proxyUsername else ""
+        val proxyPassToUse = if (useProxy) currentState.proxyPassword else ""
+
+        _uiState.value = currentState.copy(
+            isCreating = true,
+            errorMessage = null,
+            proxyStatus = if (useProxy) "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})..." else "CONNECTING PROXY..."
+        )
+
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+            try {
+                if (useProxy) {
+                    delay(500)
+                    _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
+                } else {
+                    delay(500)
+                    _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
+                }
+
+                delay(1000)
+
+                val result = FbAccountService.createAccountOfficial(
+                    phoneInput = phone,
+                    country = currentState.selectedCountry,
+                    proxyServer = proxyServerToUse,
+                    proxyPort = proxyPortToUse,
+                    proxyUsername = proxyUserToUse,
+                    proxyPassword = proxyPassToUse,
+                    customUserAgent = currentState.customUserAgent,
+                    isCustomUserAgentEnabled = currentState.isCustomUserAgentEnabled
+                )
+
+                if (result.success) {
+                    val entity = AccountEntity(
+                        phone = result.phone,
+                        uid = result.uid,
+                        name = result.name,
+                        password = result.password,
+                        cookies = result.cookies
+                    )
+                    val newId = accountDao.insertAccount(entity)
+                    val savedEntity = entity.copy(id = newId)
+
+                    // Auto-save created account to account.csv file in /sdcard/ACCOUNT FB/
+                    appendRecordToCsv(result.uid, result.password, result.cookies)
+
+                    // Update active number with UID
+                    val updatedActives = _uiState.value.activeNumbers.map {
+                        if (it.phone == phone) it.copy(accountUid = result.uid) else it
+                    }
+
+                    _uiState.value = _uiState.value.copy(
+                        isCreating = false,
+                        lastCreatedAccount = savedEntity,
+                        activeNumbers = updatedActives,
+                        successMessage = "Account Created! UID: ${result.uid}. Auto-saved to account.csv"
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isCreating = false,
+                        errorMessage = "Account Creation Failed: ${result.error}"
+                    )
+                }
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    proxyStatus = "DISCONNECTED (AUTO OFF)"
+                )
+            }
+        }
+    }
+
     fun createAccount() {
         val currentState = _uiState.value
         var phone = currentState.phoneInput.trim()

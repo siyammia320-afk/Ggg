@@ -81,6 +81,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -507,10 +508,11 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                     }
                 }
 
-                TabRow(
+                ScrollableTabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = Color(0xFFF1F5F9),
                     contentColor = Color(0xFF1E293B),
+                    edgePadding = 0.dp,
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
@@ -524,130 +526,90 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         onClick = { selectedTabIndex = 0 },
                         modifier = Modifier.testTag("tab_get_number")
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Smartphone,
-                                contentDescription = null,
-                                tint = if (selectedTabIndex == 0) Color(0xFF2563EB) else Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "NUMBER",
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = if (selectedTabIndex == 0) Color(0xFF1E293B) else Color(0xFF64748B),
-                                maxLines = 1
-                            )
-                        }
+                        Text(
+                            text = "RANGE",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (selectedTabIndex == 0) Color(0xFF1E293B) else Color(0xFF64748B),
+                            maxLines = 1
+                        )
                     }
                     Tab(
                         selected = selectedTabIndex == 1,
                         onClick = { selectedTabIndex = 1 },
                         modifier = Modifier.testTag("tab_create")
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.PersonAdd,
-                                contentDescription = null,
-                                tint = if (selectedTabIndex == 1) Color(0xFF2563EB) else Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "NM CREATE",
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = if (selectedTabIndex == 1) Color(0xFF1E293B) else Color(0xFF64748B),
-                                maxLines = 1
-                            )
-                        }
+                        Text(
+                            text = "NM LIMIT",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (selectedTabIndex == 1) Color(0xFF1E293B) else Color(0xFF64748B),
+                            maxLines = 1
+                        )
                     }
                     Tab(
                         selected = selectedTabIndex == 2,
                         onClick = { selectedTabIndex = 2 },
-                        modifier = Modifier.testTag("tab_email_create")
+                        modifier = Modifier.testTag("tab_official")
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Email,
-                                contentDescription = null,
-                                tint = if (selectedTabIndex == 2) Color(0xFF2563EB) else Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "EMAIL CREATE",
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = if (selectedTabIndex == 2) Color(0xFF1E293B) else Color(0xFF64748B),
-                                maxLines = 1
-                            )
-                        }
+                        Text(
+                            text = "NM OFFICAL",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (selectedTabIndex == 2) Color(0xFF1E293B) else Color(0xFF64748B),
+                            maxLines = 1
+                        )
                     }
                     Tab(
                         selected = selectedTabIndex == 3,
                         onClick = { selectedTabIndex = 3 },
-                        modifier = Modifier.testTag("tab_inbox")
+                        modifier = Modifier.testTag("tab_email_create")
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Sms,
-                                contentDescription = null,
-                                tint = if (selectedTabIndex == 3) Color(0xFF2563EB) else Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "INBOX (${uiState.activeNumbers.size})",
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = if (selectedTabIndex == 3) Color(0xFF1E293B) else Color(0xFF64748B),
-                                maxLines = 1
-                            )
-                        }
+                        Text(
+                            text = "EML LIMIT",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (selectedTabIndex == 3) Color(0xFF1E293B) else Color(0xFF64748B),
+                            maxLines = 1
+                        )
                     }
                     Tab(
                         selected = selectedTabIndex == 4,
                         onClick = { selectedTabIndex = 4 },
+                        modifier = Modifier.testTag("tab_inbox")
+                    ) {
+                        Text(
+                            text = "OTP",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (selectedTabIndex == 4) Color(0xFF1E293B) else Color(0xFF64748B),
+                            maxLines = 1
+                        )
+                    }
+                    Tab(
+                        selected = selectedTabIndex == 5,
+                        onClick = { selectedTabIndex = 5 },
                         modifier = Modifier.testTag("tab_history")
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.History,
-                                contentDescription = null,
-                                tint = if (selectedTabIndex == 4) Color(0xFF2563EB) else Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "SAVED (${accountsHistory.size})",
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = if (selectedTabIndex == 4) Color(0xFF1E293B) else Color(0xFF64748B),
-                                maxLines = 1
-                            )
-                        }
+                        Text(
+                            text = "SAV",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (selectedTabIndex == 5) Color(0xFF1E293B) else Color(0xFF64748B),
+                            maxLines = 1
+                        )
                     }
                 }
 
@@ -678,7 +640,18 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         onOpenProxySettings = viewModel::openProxyDialog,
                         onCheckLive = viewModel::checkLiveStatusForSingleAccount
                     )
-                    2 -> EmailCreateTabContent(
+                    2 -> OfficialCreateTabContent(
+                        uiState = uiState,
+                        onPhoneChange = viewModel::onPhoneChanged,
+                        onCountrySelected = viewModel::onCountrySelected,
+                        onCreateAccount = { viewModel.createAccountOfficial(context) },
+                        onCopyUid = { uid -> viewModel.copyToClipboard(context, uid, "UID") },
+                        onCopyNumber = { num -> viewModel.copyToClipboard(context, num, "NUMBER") },
+                        onCopyCookies = { cookie -> viewModel.copyToClipboard(context, cookie, "COOKIES") },
+                        onOpenProxySettings = viewModel::openProxyDialog,
+                        onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                    )
+                    3 -> EmailCreateTabContent(
                         uiState = uiState,
                         onEmailChange = viewModel::onEmailChanged,
                         onPasswordChange = viewModel::onPasswordChanged,
@@ -691,7 +664,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         onOpenProxySettings = viewModel::openProxyDialog,
                         onCheckLive = viewModel::checkLiveStatusForSingleAccount
                     )
-                    3 -> InboxTabContent(
+                    4 -> InboxTabContent(
                         activeNumbers = uiState.activeNumbers,
                         onCopyOtp = { otp -> viewModel.copyToClipboard(context, otp, "OTP CODE") },
                         onCopyPhone = { phone -> viewModel.copyToClipboard(context, phone, "PHONE NUMBER") },
@@ -699,7 +672,7 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         onClearInbox = viewModel::clearInbox,
                         onReloadInbox = viewModel::manualRefreshOtps
                     )
-                    4 -> AccountHistoryTabContent(
+                    5 -> AccountHistoryTabContent(
                         accounts = accountsHistory,
                         onClearAll = viewModel::clearAllAccounts,
                         onDeleteOne = viewModel::deleteAccount,
@@ -1232,7 +1205,7 @@ fun CreateAccountTabContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "⚙️ Create Account (Number)",
+                    text = "⚙️ NM LIMIT CREATE",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -1244,7 +1217,7 @@ fun CreateAccountTabContent(
                     onValueChange = { },
                     readOnly = true,
                     enabled = false,
-                    placeholder = { Text("Select number from NUMBER tab", color = Color.Gray, fontSize = 11.sp) },
+                    placeholder = { Text("Select number from RANGE tab", color = Color.Gray, fontSize = 11.sp) },
                     leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -3379,3 +3352,211 @@ fun EmailCreateTabContent(
 
 
 
+
+@Composable
+fun OfficialCreateTabContent(
+    uiState: com.example.ui.AccountCreatorUiState,
+    onPhoneChange: (String) -> Unit,
+    onCountrySelected: (Country) -> Unit,
+    onCreateAccount: () -> Unit,
+    onCopyUid: (String) -> Unit,
+    onCopyNumber: (String) -> Unit,
+    onCopyCookies: (String) -> Unit,
+    onOpenProxySettings: () -> Unit = {},
+    onCheckLive: (String) -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Compact Proxy Status Bar
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "🌐 Proxy: ${uiState.proxyStatus}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
+                IconButton(
+                    onClick = onOpenProxySettings,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.LightGray,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        // Main Create Account Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "⚙️ Create Account (Official)",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                // Phone Input (Read-only)
+                OutlinedTextField(
+                    value = uiState.phoneInput,
+                    onValueChange = { },
+                    readOnly = true,
+                    enabled = false,
+                    placeholder = { Text("Select number from RANGE tab", color = Color.Gray, fontSize = 11.sp) },
+                    leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp)) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = Color(0xFF2D2D2D),
+                        disabledTextColor = Color.White,
+                        disabledPlaceholderColor = Color.Gray
+                    ),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Country Selector Dropdown
+                CountryDropdownSelector(
+                    selectedCountry = uiState.selectedCountry,
+                    enabled = true,
+                    onCountrySelected = onCountrySelected
+                )
+
+                // Password Input (Hardcoded)
+                OutlinedTextField(
+                    value = "arafat@@##",
+                    onValueChange = {},
+                    readOnly = true,
+                    enabled = false,
+                    leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp)) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = Color(0xFF2D2D2D),
+                        disabledTextColor = Color.White,
+                        disabledPlaceholderColor = Color.Gray
+                    ),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // CREATE Button
+                Button(
+                    onClick = onCreateAccount,
+                    enabled = !uiState.isCreating && uiState.phoneInput.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2563EB),
+                        disabledContainerColor = Color(0xFF2D2D2D)
+                    ),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                ) {
+                    if (uiState.isCreating) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                            Text("CREATING...", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Text("⚡ NM OFFICAL CREATE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Result Card
+        uiState.lastCreatedAccount?.let { account ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("✅ Account Created!", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Green)
+                    Text("Number: ${account.phone}", fontSize = 11.sp, color = Color.White)
+                    Text("UID: ${account.uid}", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Button(
+                            onClick = { onCopyUid(account.uid) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                            modifier = Modifier.weight(1f).height(32.dp)
+                        ) {
+                            Text("COPY UID", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        Button(
+                            onClick = { onCopyCookies(account.cookies) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                            modifier = Modifier.weight(1f).height(32.dp)
+                        ) {
+                            Text("COPY COOKIES", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = { onCheckLive(account.uid) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth().height(34.dp)
+                    ) {
+                        Text("Live Check ⚡", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
