@@ -78,11 +78,14 @@ object FbAccountService {
             defaultUserAgent
         }
 
-        val lsdToken = "AdTQZqV6VK31DOyCLpwies_uymI"
-        val fbDtsg = "NAfye6xUkCgg4lZlvPQsJP2BxJ-DJ9PQjiBxj9cxwBrVbxlD57WdLpA:0:0"
-        val jazoest = "25045"
+        val isEmail = phoneInput.contains("@")
+
+        val lsdToken = if (isEmail) "AdTI-lqiNWIq7cVOXUYxUA0bMiw" else "AdTQZqV6VK31DOyCLpwies_uymI"
+        val fbDtsg = if (isEmail) "NAfyHkf7eKKhCRzylwuqVnI1ZxHyqN4am8snPlFVbfUMBA0kpU_PZ8Q:0:0" else "NAfye6xUkCgg4lZlvPQsJP2BxJ-DJ9PQjiBxj9cxwBrVbxlD57WdLpA:0:0"
+        val jazoest = if (isEmail) "25160" else "25045"
         val dyn = "1Z3pawlEnwm8_Bg9ppoW5UdE4a2i5U4e0C86u7E39x60zU3ex608ewk9E4W0pKq0FE6S0x81vohw73wGwcq1GwqU2YwbK0oi0zE1jU1soG0hi0Lo6-0Co1kU1UU3jwea"
-        val aParam = "AYx1_Idlp-hfWNPJTfQ4-esKhzaqHCpdg0Rv8FjrlYPOv62aLdqnRnx7Y-Vb2FitdYUgUX6rSVUOigyOCOuJp5LpQ4gtxN-2nRM"
+        val aParam = if (isEmail) "AYymxStjpu3pao708AsEj5Lg-ajnyITjlI2TTHb_0YeflPDd_af6ECxJ_PMYwJRGvyNZwhYvgYVV78_CYCmXaWMiflVCUSNunvo" else "AYx1_Idlp-hfWNPJTfQ4-esKhzaqHCpdg0Rv8FjrlYPOv62aLdqnRnx7Y-Vb2FitdYUgUX6rSVUOigyOCOuJp5LpQ4gtxN-2nRM"
+        val reqParam = if (isEmail) "g" else "8"
 
         val formBodyBuilder = FormBody.Builder()
             .add("ccp", "2")
@@ -124,15 +127,26 @@ object FbAccountService {
             .add("__hsdp", "")
             .add("__hblp", "")
             .add("__sjsp", "")
-            .add("__req", "8")
+            .add("__req", reqParam)
             .add("__fmt", "1")
             .add("__a", aParam)
             .add("__user", "0")
 
-        val url = "https://limited.facebook.com/reg/submit/?privacy_mutation_token=eyJ0eXBlIjowLCJjcmVhdGlvbl90aW1lIjoxNzg2NjY3NDkyLCJjYWxsc2l0ZV9pZCI6OTA3OTI0NDAyOTQ4MDU4fQ%3D%3D&app_id=103&multi_step_form=1&skip_suma=0&shouldForceMTouch=1"
+        val url = if (isEmail) {
+            "https://www.fbsbx.com/reg/submit/?app_id=103&multi_step_form=1&skip_suma=0&shouldForceMTouch=1"
+        } else {
+            "https://limited.facebook.com/reg/submit/?privacy_mutation_token=eyJ0eXBlIjowLCJjcmVhdGlvbl90aW1lIjoxNzg2NjY3NDkyLCJjYWxsc2l0ZV9pZCI6OTA3OTI0NDAyOTQ4MDU4fQ%3D%3D&app_id=103&multi_step_form=1&skip_suma=0&shouldForceMTouch=1"
+        }
 
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(url)
+
+        if (isEmail) {
+            requestBuilder.header("Host", "limited.facebook.com")
+            requestBuilder.header("priority", "u=1, i")
+        }
+
+        val request = requestBuilder
             .header("User-Agent", userAgent)
             .header("Accept-Encoding", "gzip, deflate, br, zstd")
             .header("Content-Type", "application/x-www-form-urlencoded")

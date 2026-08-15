@@ -682,10 +682,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun generateRandomEmail() {
-        val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain", "fahimhasan", "rifatislam", "tanishaakter")
+        val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain", "fahimhasan", "rifatislam", "tanishaakter", "dudfhys", "arafat")
         val prefix = prefixes.random()
         val randomSuffix = (10000000..999999999).random()
-        val email = "$prefix$randomSuffix@gmail.com"
+        val email = "$prefix$randomSuffix@hotmail.com"
         _uiState.value = _uiState.value.copy(emailInput = email)
     }
 
@@ -693,8 +693,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val currentState = _uiState.value
         var email = currentState.emailInput.trim()
         if (email.isEmpty()) {
-            val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain")
-            email = prefixes.random() + (10000000..999999999).random() + "@gmail.com"
+            val prefixes = listOf("alihasanmiya", "siamahmed", "rakibhasan", "tanvirislam", "nayemhossain", "dudfhys", "arafat")
+            email = prefixes.random() + (10000000..999999999).random() + "@hotmail.com"
             _uiState.value = _uiState.value.copy(emailInput = email)
         }
 
@@ -715,7 +715,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             proxyStatus = if (useProxy) "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})..." else "CONNECTING PROXY..."
         )
 
-        viewModelScope.launch {
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 if (useProxy) {
                     delay(500)
@@ -725,7 +725,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
                 }
 
-                delay(2000)
+                delay(1000)
 
                 val result = FbAccountService.createAccount(
                     phoneInput = email,
