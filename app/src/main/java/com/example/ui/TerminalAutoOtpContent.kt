@@ -1,56 +1,37 @@
 package com.example.ui
 
+import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import org.json.JSONArray
 
 enum class CreationMethod(val title: String) {
     NM_OFFICIAL("NM OFFICAL"),
     NM_LIMIT("NM LIMIT")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun TerminalAutoOtpScreen(
     onClose: () -> Unit,
     onStart: (
         range: String,
-        manualNumbersList: List<String>,
-        useManualMode: Boolean,
         count: Int,
         threads: Int,
         method: CreationMethod,
@@ -63,7 +44,6 @@ fun TerminalAutoOtpScreen(
     proxyStatus: String,
     initialPassword: String = "arafat@@##",
     isTerminalEnabledByAdmin: Boolean = true,
-    isManualNumbersEnabledByAdmin: Boolean = true,
     terminalDisabledNotice: String = "Terminal is currently disabled by admin.",
     successCount: Int = 0,
     noAccountCount: Int = 0,
@@ -72,851 +52,847 @@ fun TerminalAutoOtpScreen(
     availableRanges: List<String> = emptyList(),
     onRefreshRanges: () -> Unit = {}
 ) {
-    var selectedMethod by remember { mutableStateOf(CreationMethod.NM_OFFICIAL) }
-    var isFindAccountOn by remember { mutableStateOf(false) }
-    var isManualMode by remember { mutableStateOf(false) }
-    
-    var rangeInput by remember { mutableStateOf(if (availableRanges.isNotEmpty()) availableRanges.first() else "") }
-    var manualNumbersText by remember { mutableStateOf("") }
-    var passwordInput by remember { mutableStateOf(if (initialPassword.isNotBlank()) initialPassword else "arafat@@##") }
-    var accountCount by remember { mutableStateOf("5") }
-    var threadCount by remember { mutableStateOf("2") }
-    var isRefreshingRangesState by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    var lastLogIndex by remember { mutableIntStateOf(0) }
 
-    // If manual mode is disabled by admin, automatically revert to Range mode
-    LaunchedEffect(isManualNumbersEnabledByAdmin) {
-        if (!isManualNumbersEnabledByAdmin && isManualMode) {
-            isManualMode = false
+    // Sync Counters and Running State to HTML UI
+    LaunchedEffect(isRunning, isTerminalEnabledByAdmin, successCount, noAccountCount, existCount, failedCount, proxyStatus, terminalDisabledNotice) {
+        val webView = webViewRef ?: return@LaunchedEffect
+        val safeProxy = proxyStatus.replace("'", "\\'")
+        val safeNotice = terminalDisabledNotice.replace("'", "\\'")
+        val script = """
+            if (window.updateStatsAndState) {
+                window.updateStatsAndState(
+                    $isRunning,
+                    $isTerminalEnabledByAdmin,
+                    $successCount,
+                    $noAccountCount,
+                    $existCount,
+                    $failedCount,
+                    '$safeProxy',
+                    '$safeNotice'
+                );
+            }
+        """.trimIndent()
+        Handler(Looper.getMainLooper()).post {
+            webView.evaluateJavascript(script, null)
         }
     }
 
-    // Auto-update range if empty and new ranges arrive
+    // Sync Available Ranges to HTML UI
     LaunchedEffect(availableRanges) {
-        if (rangeInput.isEmpty() && availableRanges.isNotEmpty()) {
-            rangeInput = availableRanges.first()
+        val webView = webViewRef ?: return@LaunchedEffect
+        val jsonArray = JSONArray(availableRanges).toString()
+        val script = """
+            if (window.updateRanges) {
+                window.updateRanges($jsonArray);
+            }
+        """.trimIndent()
+        Handler(Looper.getMainLooper()).post {
+            webView.evaluateJavascript(script, null)
         }
     }
-    
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
+    // Fast incremental log streaming to HTML UI (Zero Recomposition Lag)
     LaunchedEffect(logs.size) {
-        if (logs.isNotEmpty()) {
-            coroutineScope.launch {
-                listState.animateScrollToItem(logs.size - 1)
+        val webView = webViewRef ?: return@LaunchedEffect
+        if (logs.isEmpty()) {
+            lastLogIndex = 0
+            Handler(Looper.getMainLooper()).post {
+                webView.evaluateJavascript("if (window.clearTerminalLogs) window.clearTerminalLogs();", null)
             }
+            return@LaunchedEffect
+        }
+
+        if (logs.size < lastLogIndex) {
+            // Logs were reset
+            lastLogIndex = 0
+        }
+
+        val newLines = logs.subList(lastLogIndex, logs.size)
+        if (newLines.isNotEmpty()) {
+            val jsonArray = JSONArray(newLines).toString()
+            val script = """
+                if (window.appendTerminalLogs) {
+                    window.appendTerminalLogs($jsonArray);
+                }
+            """.trimIndent()
+            Handler(Looper.getMainLooper()).post {
+                webView.evaluateJavascript(script, null)
+            }
+            lastLogIndex = logs.size
         }
     }
 
-    // Parse manual numbers line-by-line
-    val manualNumbersList = remember(manualNumbersText) {
-        manualNumbersText.lines()
-            .map { it.trim().replace("+", "") }
-            .filter { it.isNotBlank() }
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF0A0F1D)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Header Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF1E293B))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .background(
-                                if (!isTerminalEnabledByAdmin) Color(0xFFEF4444) else if (isRunning) Color(0xFF22C55E) else Color(0xFF94A3B8),
-                                shape = RoundedCornerShape(5.dp)
-                            )
-                    )
-                    Text(
-                        text = "Terminal",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                    if (!isTerminalEnabledByAdmin) {
-                        Text(
-                            text = "(DISABLED BY ADMIN)",
-                            color = Color(0xFFF87171),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        )
-                    }
-                }
-
-                IconButton(
-                    onClick = {
-                        if (isRunning) onStop()
-                        onClose()
-                    },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-            }
-            
-            // Proxy & Method Status Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF111827))
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "🌐 Proxy: $proxyStatus",
-                    color = Color(0xFF38BDF8),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = "Method: ${selectedMethod.title}",
-                    color = Color(0xFFA5B4FC),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // If Admin disabled the entire Terminal
-            if (!isTerminalEnabledByAdmin) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color.White)
-                        Text(
-                            text = terminalDisabledNotice,
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            // Top Real-time Counters Grid (Success, No Account, Exist, Failed)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                StatChip(
-                    title = "Success",
-                    count = successCount,
-                    accentColor = Color(0xFF22C55E),
-                    modifier = Modifier.weight(1f)
-                )
-                StatChip(
-                    title = "No Account",
-                    count = noAccountCount,
-                    accentColor = Color(0xFF38BDF8),
-                    modifier = Modifier.weight(1f)
-                )
-                StatChip(
-                    title = "Exist",
-                    count = existCount,
-                    accentColor = Color(0xFFF59E0B),
-                    modifier = Modifier.weight(1f)
-                )
-                StatChip(
-                    title = "Failed",
-                    count = failedCount,
-                    accentColor = Color(0xFFEF4444),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Controls Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    // Method Selector + Find Account ON/OFF Button Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        MethodSelectorButton(
-                            title = "⚡ NM OFFICAL",
-                            isSelected = selectedMethod == CreationMethod.NM_OFFICIAL,
-                            enabled = !isRunning && isTerminalEnabledByAdmin,
-                            onClick = { selectedMethod = CreationMethod.NM_OFFICIAL },
-                            modifier = Modifier.weight(1f)
-                        )
-                        MethodSelectorButton(
-                            title = "🚀 NM LIMIT",
-                            isSelected = selectedMethod == CreationMethod.NM_LIMIT,
-                            enabled = !isRunning && isTerminalEnabledByAdmin,
-                            onClick = { selectedMethod = CreationMethod.NM_LIMIT },
-                            modifier = Modifier.weight(1f)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .height(32.dp)
-                                .background(
-                                    if (isFindAccountOn) Color(0xFF15803D) else Color(0xFF334155),
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isFindAccountOn) Color(0xFF4ADE80) else Color(0xFF64748B),
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-                                .clickable(enabled = !isRunning && isTerminalEnabledByAdmin) { isFindAccountOn = !isFindAccountOn },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.padding(horizontal = 6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (isFindAccountOn) Icons.Default.Check else Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = if (isFindAccountOn) Color.White else Color(0xFFCBD5E1),
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Text(
-                                    text = if (isFindAccountOn) "Find Acc: ON" else "Find Acc: OFF",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    // Mode Toggle: [ Range Mode (Auto) ] vs [ Manual Number Mode (Line by line) ]
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Range Mode button
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(28.dp)
-                                .background(
-                                    if (!isManualMode) Color(0xFF2563EB) else Color(0xFF334155),
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .clickable(enabled = !isRunning && isTerminalEnabledByAdmin) { isManualMode = false },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "🎯 Range Mode",
-                                color = if (!isManualMode) Color.White else Color(0xFF94A3B8),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Manual Number Mode button (Admin enabled / disabled check)
-                        val isManualAllowed = isManualNumbersEnabledByAdmin
-                        Box(
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .height(28.dp)
-                                .background(
-                                    if (!isManualAllowed) Color(0xFF475569).copy(alpha = 0.5f)
-                                    else if (isManualMode) Color(0xFFD97706)
-                                    else Color(0xFF334155),
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isManualMode && isManualAllowed) Color(0xFFFBBF24) else Color.Transparent,
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-                                .clickable(enabled = !isRunning && isTerminalEnabledByAdmin && isManualAllowed) {
-                                    isManualMode = true
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (isManualAllowed) Icons.Default.Edit else Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = if (!isManualAllowed) Color(0xFF94A3B8) else Color.White,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = if (!isManualAllowed) "Manual (Admin OFF)" else "📋 Manual Lines",
-                                    color = if (!isManualAllowed) Color(0xFF94A3B8) else Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    // Password Box
-                    val isOfficial = selectedMethod == CreationMethod.NM_OFFICIAL
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = if (isOfficial) "🔑 Password (Fixed for NM OFFICIAL)" else "🔑 Password (Custom for NM LIMIT)",
-                            fontSize = 10.sp,
-                            color = if (isOfficial) Color(0xFF94A3B8) else Color(0xFF38BDF8),
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(bottom = 2.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(36.dp)
-                                .background(if (isOfficial) Color(0xFF0F172A).copy(alpha = 0.6f) else Color(0xFF0F172A), RoundedCornerShape(6.dp))
-                                .border(1.dp, if (isOfficial) Color(0xFF334155) else Color(0xFF38BDF8), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = if (isOfficial) Color(0xFF64748B) else Color(0xFF38BDF8),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                if (isOfficial) {
-                                    Text(
-                                        text = "arafat@@## (Default Official Locked)",
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 12.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        maxLines = 1
-                                    )
-                                } else {
-                                    BasicTextField(
-                                        value = passwordInput,
-                                        onValueChange = { passwordInput = it },
-                                        singleLine = true,
-                                        enabled = !isRunning && isTerminalEnabledByAdmin,
-                                        textStyle = TextStyle(
-                                            color = Color.White,
-                                            fontSize = 12.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        cursorBrush = SolidColor(Color(0xFF38BDF8)),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        decorationBox = { innerTextField ->
-                                            if (passwordInput.isEmpty()) {
-                                                Text(
-                                                    text = "Enter Password...",
-                                                    color = Color(0xFF64748B),
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                            innerTextField()
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Dynamic Section: Either Range Input (with Refresh button & chips) or Manual Numbers Text Box
-                    if (!isManualMode) {
-                        // Range Input with Refresh Button
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "📞 Phone Range (Auto Generation)",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFF94A3B8),
-                                    fontWeight = FontWeight.Medium
-                                )
-
-                                // Range Refresh Button
-                                Row(
-                                    modifier = Modifier
-                                        .clickable(enabled = !isRunning && isTerminalEnabledByAdmin) {
-                                            isRefreshingRangesState = true
-                                            onRefreshRanges()
-                                            coroutineScope.launch {
-                                                kotlinx.coroutines.delay(1000)
-                                                isRefreshingRangesState = false
-                                            }
-                                        }
-                                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = "Refresh Ranges",
-                                        tint = Color(0xFF38BDF8),
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Text(
-                                        text = if (isRefreshingRangesState) "Refreshing..." else "Refresh Ranges",
-                                        color = Color(0xFF38BDF8),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(36.dp)
-                                    .background(Color(0xFF0F172A), RoundedCornerShape(6.dp))
-                                    .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                BasicTextField(
-                                    value = rangeInput,
-                                    onValueChange = { rangeInput = it },
-                                    singleLine = true,
-                                    enabled = !isRunning && isTerminalEnabledByAdmin,
-                                    textStyle = TextStyle(
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    cursorBrush = SolidColor(Color(0xFF38BDF8)),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    decorationBox = { innerTextField ->
-                                        if (rangeInput.isEmpty()) {
-                                            Text(
-                                                text = "Enter Range (e.g. 26134XXX)",
-                                                color = Color(0xFF64748B),
-                                                fontSize = 12.sp
-                                            )
-                                        }
-                                        innerTextField()
-                                    }
-                                )
-                            }
-                        }
-
-                        // Quick select range chips
-                        if (availableRanges.isNotEmpty() && !isRunning) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                availableRanges.take(12).forEach { r ->
-                                    Box(
-                                        modifier = Modifier
-                                            .background(
-                                                if (rangeInput == r) Color(0xFF2563EB) else Color(0xFF334155),
-                                                RoundedCornerShape(4.dp)
-                                            )
-                                            .clickable { rangeInput = r }
-                                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                                    ) {
-                                        Text(
-                                            text = r,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        // Manual Numbers Multi-line Text Box
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "📋 Manual Numbers (Line by Line):",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFFBBF24),
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            if (manualNumbersList.isNotEmpty()) Color(0xFF065F46) else Color(0xFF334155),
-                                            RoundedCornerShape(4.dp)
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "⚡ Load: ${manualNumbersList.size} Ta",
-                                        fontSize = 10.sp,
-                                        color = if (manualNumbersList.isNotEmpty()) Color(0xFF4ADE80) else Color(0xFF94A3B8),
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(76.dp)
-                                    .background(Color(0xFF0F172A), RoundedCornerShape(6.dp))
-                                    .border(1.dp, Color(0xFFF59E0B), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                contentAlignment = Alignment.TopStart
-                            ) {
-                                BasicTextField(
-                                    value = manualNumbersText,
-                                    onValueChange = { manualNumbersText = it },
-                                    enabled = !isRunning && isTerminalEnabledByAdmin,
-                                    textStyle = TextStyle(
-                                        color = Color.White,
-                                        fontSize = 12.sp,
-                                        lineHeight = 16.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    cursorBrush = SolidColor(Color(0xFFFBBF24)),
-                                    modifier = Modifier.fillMaxSize(),
-                                    decorationBox = { innerTextField ->
-                                        if (manualNumbersText.isEmpty()) {
-                                            Text(
-                                                text = "Paste numbers here (one per line):\n88017282828\n88018272626\n0192827262",
-                                                color = Color(0xFF64748B),
-                                                fontSize = 11.sp,
-                                                lineHeight = 16.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                        innerTextField()
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Account count, Threads & START Button in compact rows
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Accounts Input Box (Disabled or Auto in Manual Mode)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (isManualMode) "Total Num" else "Accounts",
-                                fontSize = 9.sp,
-                                color = Color(0xFF94A3B8),
-                                modifier = Modifier.padding(bottom = 1.dp)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(34.dp)
-                                    .background(if (isManualMode) Color(0xFF1E293B) else Color(0xFF0F172A), RoundedCornerShape(6.dp))
-                                    .border(1.dp, if (isManualMode) Color(0xFF64748B) else Color(0xFF38BDF8), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 6.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                if (isManualMode) {
-                                    Text(
-                                        text = "${manualNumbersList.size}",
-                                        color = Color(0xFF34D399),
-                                        fontSize = 13.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                } else {
-                                    BasicTextField(
-                                        value = accountCount,
-                                        onValueChange = { accountCount = it.filter { ch -> ch.isDigit() } },
-                                        singleLine = true,
-                                        enabled = !isRunning && isTerminalEnabledByAdmin,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        textStyle = TextStyle(
-                                            color = Color.White,
-                                            fontSize = 13.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        cursorBrush = SolidColor(Color(0xFF38BDF8)),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        decorationBox = { innerTextField ->
-                                            if (accountCount.isEmpty()) {
-                                                Text("Qty", color = Color(0xFF64748B), fontSize = 11.sp)
-                                            }
-                                            innerTextField()
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        
-                        // Threads Input Box
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Threads",
-                                fontSize = 9.sp,
-                                color = Color(0xFF94A3B8),
-                                modifier = Modifier.padding(bottom = 1.dp)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(34.dp)
-                                    .background(Color(0xFF0F172A), RoundedCornerShape(6.dp))
-                                    .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 6.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                BasicTextField(
-                                    value = threadCount,
-                                    onValueChange = { threadCount = it.filter { ch -> ch.isDigit() } },
-                                    singleLine = true,
-                                    enabled = !isRunning && isTerminalEnabledByAdmin,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    textStyle = TextStyle(
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    cursorBrush = SolidColor(Color(0xFF38BDF8)),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    decorationBox = { innerTextField ->
-                                        if (threadCount.isEmpty()) {
-                                            Text("Th", color = Color(0xFF64748B), fontSize = 11.sp)
-                                        }
-                                        innerTextField()
-                                    }
-                                )
-                            }
-                        }
-
-                        // START / STOP Action Button
-                        val canStart = isTerminalEnabledByAdmin && if (isManualMode) manualNumbersList.isNotEmpty() else rangeInput.isNotBlank()
-                        if (!isRunning) {
-                            Button(
-                                onClick = {
-                                    val count = if (isManualMode) manualNumbersList.size else (accountCount.toIntOrNull() ?: 1)
-                                    val threads = threadCount.toIntOrNull() ?: 1
-                                    val finalPwd = if (isOfficial) "arafat@@##" else passwordInput.trim().ifEmpty { "arafat@@##" }
-                                    onStart(
-                                        rangeInput.trim(),
-                                        manualNumbersList,
-                                        isManualMode,
-                                        count,
-                                        threads,
-                                        selectedMethod,
-                                        isFindAccountOn,
-                                        finalPwd
-                                    )
-                                },
-                                modifier = Modifier
-                                    .weight(1.3f)
-                                    .padding(top = 12.dp)
-                                    .height(36.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                                shape = RoundedCornerShape(6.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp),
-                                enabled = canStart
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("START", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
-                        } else {
-                            Button(
-                                onClick = onStop,
-                                modifier = Modifier
-                                    .weight(1.3f)
-                                    .padding(top = 12.dp)
-                                    .height(36.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                                shape = RoundedCornerShape(6.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp)
-                            ) {
-                                Icon(Icons.Default.Stop, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("STOP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Real-time Terminal Log Screen (Maximised Viewport)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                    .background(Color(0xFF020617), RoundedCornerShape(6.dp))
-                    .padding(8.dp)
-            ) {
-                if (logs.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = ">_ Terminal Ready.\n• Method: ${selectedMethod.title}\n• Mode: ${if (isManualMode) "Manual Lines (${manualNumbersList.size})" else "Range ($rangeInput)"}\n• Find Account: ${if (isFindAccountOn) "ON (Fresh Only)" else "OFF (All Numbers)"}\n• Click START to run automated creation.",
-                            color = Color(0xFF64748B),
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(logs) { log ->
-                            val color = when {
-                                log.contains("[SUCCESS]") || log.contains("Saved to Database") -> Color(0xFF4ADE80)
-                                log.contains("[FAILED]") || log.contains("[ERROR]") -> Color(0xFFF87171)
-                                log.contains("[PROXY]") -> Color(0xFF38BDF8)
-                                log.contains("ALREADY EXISTS") -> Color(0xFFFBBF24)
-                                log.contains("No Account Found") -> Color(0xFF34D399)
-                                log.contains("[THREAD") -> Color(0xFFFCD34D)
-                                log.contains("[SYSTEM]") || log.contains("[CONFIG]") -> Color(0xFFA78BFA)
-                                else -> Color(0xFFE2E8F0)
-                            }
-                            Text(
-                                text = log,
-                                color = color,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                lineHeight = 14.sp,
-                                modifier = Modifier.padding(vertical = 1.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatChip(
-    title: String,
-    count: Int,
-    accentColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.height(42.dp),
-        shape = RoundedCornerShape(6.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-        border = CardDefaults.outlinedCardBorder().copy(brush = SolidColor(accentColor.copy(alpha = 0.5f)))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 2.dp, vertical = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = title,
-                fontSize = 10.sp,
-                color = Color(0xFF94A3B8),
-                fontWeight = FontWeight.Medium,
-                maxLines = 1
-            )
-            Text(
-                text = "$count",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = accentColor,
-                fontFamily = FontFamily.Monospace
-            )
-        }
-    }
-}
-
-@Composable
-private fun MethodSelectorButton(
-    title: String,
-    isSelected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
     Box(
-        modifier = modifier
-            .height(32.dp)
-            .background(
-                if (isSelected) Color(0xFF2563EB) else Color(0xFF334155),
-                RoundedCornerShape(6.dp)
-            )
-            .border(
-                width = if (isSelected) 1.5.dp else 0.dp,
-                color = if (isSelected) Color(0xFF60A5FA) else Color.Transparent,
-                shape = RoundedCornerShape(6.dp)
-            )
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0F1D))
     ) {
-        Text(
-            text = title,
-            color = if (isSelected) Color.White else Color(0xFF94A3B8),
-            fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
+                    setBackgroundColor(0xFF0A0F1D.toInt())
+
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                            return false
+                        }
+                    }
+
+                    class AndroidTerminalBridge {
+                        @JavascriptInterface
+                        fun startCreation(range: String, countStr: String, threadsStr: String, methodStr: String, isFindAccount: Boolean, password: String) {
+                            Handler(Looper.getMainLooper()).post {
+                                val count = (countStr.toIntOrNull() ?: 5).coerceIn(1, 5)
+                                val threads = (threadsStr.toIntOrNull() ?: 2).coerceIn(1, 10)
+                                val method = if (methodStr.equals("NM_LIMIT", ignoreCase = true)) {
+                                    CreationMethod.NM_LIMIT
+                                } else {
+                                    CreationMethod.NM_OFFICIAL
+                                }
+                                val finalPwd = if (method == CreationMethod.NM_OFFICIAL) "arafat@@##" else password.trim().ifEmpty { "arafat@@##" }
+                                onStart(range.trim(), count, threads, method, isFindAccount, finalPwd)
+                            }
+                        }
+
+                        @JavascriptInterface
+                        fun stopCreation() {
+                            Handler(Looper.getMainLooper()).post {
+                                onStop()
+                            }
+                        }
+
+                        @JavascriptInterface
+                        fun closeScreen() {
+                            Handler(Looper.getMainLooper()).post {
+                                if (isRunning) onStop()
+                                onClose()
+                            }
+                        }
+
+                        @JavascriptInterface
+                        fun refreshRanges() {
+                            Handler(Looper.getMainLooper()).post {
+                                onRefreshRanges()
+                            }
+                        }
+
+                        @JavascriptInterface
+                        fun copyLogs(content: String) {
+                            Handler(Looper.getMainLooper()).post {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("Terminal Logs", content)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Logs Copied to Clipboard", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
+                    addJavascriptInterface(AndroidTerminalBridge(), "AndroidBridge")
+                    loadDataWithBaseURL("https://local.terminal/", getTerminalHtml(initialPassword), "text/html", "UTF-8", null)
+                    webViewRef = this
+                }
+            },
+            update = {
+                webViewRef = it
+            }
         )
     }
+}
+
+private fun getTerminalHtml(defaultPassword: String): String {
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>Terminal Engine</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                -webkit-tap-highlight-color: transparent;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            }
+            body {
+                background-color: #0a0f1d;
+                color: #f1f5f9;
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                overflow: hidden;
+            }
+            /* Header */
+            .header-bar {
+                background: #1e293b;
+                padding: 8px 12px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #334155;
+            }
+            .header-left {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .status-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: #94a3b8;
+            }
+            .status-dot.running { background: #22c55e; }
+            .status-dot.disabled { background: #ef4444; }
+            .title {
+                font-size: 15px;
+                font-weight: 800;
+                color: #ffffff;
+                letter-spacing: 0.5px;
+            }
+            .disabled-tag {
+                font-size: 10px;
+                font-weight: bold;
+                color: #f87171;
+            }
+            .close-btn {
+                background: none;
+                border: none;
+                color: #cbd5e1;
+                font-size: 18px;
+                font-weight: bold;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 4px;
+            }
+            .close-btn:active {
+                background: #334155;
+            }
+
+            /* Proxy Bar */
+            .proxy-bar {
+                background: #111827;
+                padding: 4px 12px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 11px;
+                font-family: monospace;
+                border-bottom: 1px solid #1f2937;
+            }
+            .proxy-text {
+                color: #38bdf8;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 65%;
+            }
+            .method-text {
+                color: #a5b4fc;
+                font-weight: bold;
+            }
+
+            /* Admin Notice */
+            .admin-banner {
+                background: #7f1d1d;
+                color: #fef2f2;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: bold;
+                display: none;
+                margin: 4px 8px;
+                border-radius: 6px;
+            }
+
+            /* Stats Counter Bar */
+            .stats-bar {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+                gap: 6px;
+                padding: 6px 8px;
+            }
+            .stat-chip {
+                background: #111827;
+                border: 1px solid #1f2937;
+                border-radius: 6px;
+                padding: 4px 6px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .stat-label {
+                font-size: 9px;
+                color: #94a3b8;
+                font-weight: 600;
+            }
+            .stat-val {
+                font-size: 13px;
+                font-weight: 800;
+                font-family: monospace;
+            }
+            .val-success { color: #22c55e; }
+            .val-noacc { color: #38bdf8; }
+            .val-exist { color: #f59e0b; }
+            .val-failed { color: #ef4444; }
+
+            /* Controls Container */
+            .controls-card {
+                background: #1e293b;
+                border-radius: 8px;
+                margin: 0 8px 6px 8px;
+                padding: 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .row-flex {
+                display: flex;
+                gap: 6px;
+                align-items: center;
+            }
+            .btn-method {
+                flex: 1;
+                height: 28px;
+                background: #334155;
+                color: #94a3b8;
+                border: 1px solid transparent;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .btn-method.active {
+                background: #2563eb;
+                color: #ffffff;
+                border-color: #60a5fa;
+            }
+            .btn-toggle {
+                flex: 1;
+                height: 28px;
+                background: #334155;
+                color: #94a3b8;
+                border: 1px solid transparent;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .btn-toggle.active {
+                background: #059669;
+                color: #ffffff;
+                border-color: #34d399;
+            }
+
+            /* Inputs */
+            .input-label {
+                font-size: 10px;
+                color: #94a3b8;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 2px;
+            }
+            .input-box {
+                width: 100%;
+                height: 32px;
+                background: #0f172a;
+                border: 1px solid #38bdf8;
+                border-radius: 6px;
+                padding: 0 8px;
+                color: #ffffff;
+                font-size: 12px;
+                font-family: monospace;
+                font-weight: bold;
+                outline: none;
+            }
+            .input-box:disabled {
+                background: #1e293b;
+                border-color: #475569;
+                color: #94a3b8;
+            }
+            .refresh-link {
+                color: #38bdf8;
+                font-size: 10px;
+                font-weight: bold;
+                cursor: pointer;
+            }
+
+            /* Chips */
+            .chips-scroll {
+                display: flex;
+                gap: 4px;
+                overflow-x: auto;
+                padding-bottom: 2px;
+                scrollbar-width: none;
+            }
+            .chips-scroll::-webkit-scrollbar { display: none; }
+            .chip {
+                background: #334155;
+                color: #ffffff;
+                font-size: 10px;
+                font-family: monospace;
+                font-weight: bold;
+                padding: 3px 8px;
+                border-radius: 4px;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .chip.selected {
+                background: #2563eb;
+            }
+
+            /* Bottom Action Bar */
+            .btn-start {
+                height: 34px;
+                background: #16a34a;
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 800;
+                cursor: pointer;
+                padding: 0 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                flex: 1.2;
+            }
+            .btn-start:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            .btn-stop {
+                height: 34px;
+                background: #dc2626;
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 800;
+                cursor: pointer;
+                padding: 0 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                flex: 1.2;
+            }
+
+            /* Quick Num Selector (1..5) */
+            .num-btn {
+                width: 24px;
+                height: 24px;
+                background: #334155;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .num-btn.active {
+                background: #2563eb;
+            }
+
+            /* Terminal Log Console */
+            .console-wrapper {
+                flex: 1;
+                margin: 0 8px 8px 8px;
+                background: #050811;
+                border: 1px solid #1e293b;
+                border-radius: 8px;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            .console-header {
+                background: #0f172a;
+                padding: 6px 10px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #1e293b;
+            }
+            .console-title {
+                font-size: 11px;
+                font-weight: bold;
+                color: #38bdf8;
+                font-family: monospace;
+            }
+            .console-actions {
+                display: flex;
+                gap: 6px;
+            }
+            .btn-tool {
+                background: #1e293b;
+                border: 1px solid #334155;
+                color: #cbd5e1;
+                font-size: 10px;
+                font-weight: bold;
+                padding: 2px 8px;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .btn-tool:active { background: #334155; }
+            .console-logs {
+                flex: 1;
+                padding: 8px;
+                overflow-y: auto;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 11px;
+                line-height: 1.35;
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+                word-break: break-all;
+            }
+            .log-line {
+                color: #94a3b8;
+            }
+            .log-success { color: #4ade80; font-weight: bold; }
+            .log-error { color: #f87171; }
+            .log-warning { color: #fbbf24; }
+            .log-info { color: #38bdf8; }
+            .log-system { color: #a5b4fc; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <!-- Header -->
+        <div class="header-bar">
+            <div class="header-left">
+                <div id="statusDot" class="status-dot"></div>
+                <div class="title">Terminal Engine ⚡</div>
+                <div id="disabledTag" class="disabled-tag" style="display: none;">(DISABLED)</div>
+            </div>
+            <button class="close-btn" onclick="handleClose()">✕</button>
+        </div>
+
+        <!-- Proxy & Method -->
+        <div class="proxy-bar">
+            <span id="proxyText" class="proxy-text">🌐 Proxy: Checking...</span>
+            <span id="methodText" class="method-text">NM OFFICAL</span>
+        </div>
+
+        <!-- Admin Disabled Notice -->
+        <div id="adminNotice" class="admin-banner"></div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-chip">
+                <span class="stat-label">Success</span>
+                <span id="statSuccess" class="stat-val val-success">0</span>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-label">No Account</span>
+                <span id="statNoAcc" class="stat-val val-noacc">0</span>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-label">Exist</span>
+                <span id="statExist" class="stat-val val-exist">0</span>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-label">Failed</span>
+                <span id="statFailed" class="stat-val val-failed">0</span>
+            </div>
+        </div>
+
+        <!-- Controls Card -->
+        <div class="controls-card">
+            <!-- Method and Find Account Selectors -->
+            <div class="row-flex">
+                <button id="btnOfficial" class="btn-method active" onclick="selectMethod('NM_OFFICIAL')">NM OFFICAL</button>
+                <button id="btnLimit" class="btn-method" onclick="selectMethod('NM_LIMIT')">NM LIMIT</button>
+                <button id="btnFindAcc" class="btn-toggle" onclick="toggleFindAccount()">🔍 Find: OFF</button>
+            </div>
+
+            <!-- Password Box -->
+            <div>
+                <div class="input-label">
+                    <span id="pwdLabel">🔑 Password (Auto Locked: arafat@@##)</span>
+                </div>
+                <input type="text" id="pwdInput" class="input-box" value="${defaultPassword}" disabled />
+            </div>
+
+            <!-- Range Input -->
+            <div>
+                <div class="input-label">
+                    <span>📞 Phone Range</span>
+                    <span class="refresh-link" onclick="handleRefreshRanges()">🔄 Refresh</span>
+                </div>
+                <input type="text" id="rangeInput" class="input-box" placeholder="e.g. 26134XXX" />
+            </div>
+
+            <!-- Range Quick Chips -->
+            <div id="chipsContainer" class="chips-scroll"></div>
+
+            <!-- Quantity (1..5), Threads, and Action -->
+            <div class="row-flex">
+                <!-- Accounts Qty (Strictly Max 5) -->
+                <div style="flex: 1;">
+                    <div class="input-label">
+                        <span>Accounts</span>
+                        <span style="color: #38bdf8; font-size: 8px; font-weight: bold;">MAX 5</span>
+                    </div>
+                    <div class="row-flex" style="gap: 2px;">
+                        <button class="num-btn" onclick="selectQty(1)">1</button>
+                        <button class="num-btn" onclick="selectQty(2)">2</button>
+                        <button class="num-btn" onclick="selectQty(3)">3</button>
+                        <button class="num-btn" onclick="selectQty(4)">4</button>
+                        <button class="num-btn active" id="btnQty5" onclick="selectQty(5)">5</button>
+                    </div>
+                </div>
+
+                <!-- Threads -->
+                <div style="width: 50px;">
+                    <div class="input-label"><span>Threads</span></div>
+                    <input type="number" id="threadInput" class="input-box" value="2" min="1" max="10" />
+                </div>
+
+                <!-- Start / Stop Button -->
+                <div style="flex: 1.2; display: flex; align-items: flex-end; height: 100%;">
+                    <button id="btnStart" class="btn-start" onclick="handleStart()">▶ START</button>
+                    <button id="btnStop" class="btn-stop" style="display: none;" onclick="handleStop()">⏹ STOP</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Console -->
+        <div class="console-wrapper">
+            <div class="console-header">
+                <span class="console-title">>_ Live Terminal Stream</span>
+                <div class="console-actions">
+                    <button class="btn-tool" onclick="handleCopyLogs()">📋 Copy</button>
+                    <button class="btn-tool" onclick="handleClearLogs()">🗑️ Clear</button>
+                </div>
+            </div>
+            <div id="consoleLogs" class="console-logs">
+                <div class="log-line">>_ Terminal Ready. Click START to begin.</div>
+            </div>
+        </div>
+
+        <script>
+            let currentMethod = 'NM_OFFICIAL';
+            let isFindAccountOn = false;
+            let currentQty = 5;
+            let isRunningEngine = false;
+            let isTerminalEnabled = true;
+            let allLogsText = [];
+
+            function selectMethod(method) {
+                if (isRunningEngine) return;
+                currentMethod = method;
+                const btnOff = document.getElementById('btnOfficial');
+                const btnLim = document.getElementById('btnLimit');
+                const pwdInput = document.getElementById('pwdInput');
+                const pwdLabel = document.getElementById('pwdLabel');
+                const methodText = document.getElementById('methodText');
+
+                if (method === 'NM_OFFICIAL') {
+                    btnOff.classList.add('active');
+                    btnLim.classList.remove('active');
+                    pwdInput.value = 'arafat@@##';
+                    pwdInput.disabled = true;
+                    pwdLabel.innerText = '🔑 Password (Auto Locked: arafat@@##)';
+                    methodText.innerText = 'NM OFFICAL';
+                } else {
+                    btnLim.classList.add('active');
+                    btnOff.classList.remove('active');
+                    pwdInput.disabled = false;
+                    pwdLabel.innerText = '🔑 Custom Password (NM LIMIT)';
+                    methodText.innerText = 'NM LIMIT';
+                }
+            }
+
+            function toggleFindAccount() {
+                if (isRunningEngine) return;
+                isFindAccountOn = !isFindAccountOn;
+                const btn = document.getElementById('btnFindAcc');
+                if (isFindAccountOn) {
+                    btn.classList.add('active');
+                    btn.innerText = '🔍 Find: ON';
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerText = '🔍 Find: OFF';
+                }
+            }
+
+            function selectQty(num) {
+                if (isRunningEngine) return;
+                currentQty = Math.max(1, Math.min(5, num));
+                document.querySelectorAll('.num-btn').forEach((btn, idx) => {
+                    if (idx + 1 === currentQty) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            function handleStart() {
+                if (!isTerminalEnabled) return;
+                const range = document.getElementById('rangeInput').value.trim();
+                const threads = document.getElementById('threadInput').value.trim() || '2';
+                const pwd = document.getElementById('pwdInput').value;
+
+                if (!range) {
+                    alert('Please enter or select a range first.');
+                    return;
+                }
+
+                if (window.AndroidBridge && window.AndroidBridge.startCreation) {
+                    window.AndroidBridge.startCreation(
+                        range,
+                        currentQty.toString(),
+                        threads,
+                        currentMethod,
+                        isFindAccountOn,
+                        pwd
+                    );
+                }
+            }
+
+            function handleStop() {
+                if (window.AndroidBridge && window.AndroidBridge.stopCreation) {
+                    window.AndroidBridge.stopCreation();
+                }
+            }
+
+            function handleClose() {
+                if (window.AndroidBridge && window.AndroidBridge.closeScreen) {
+                    window.AndroidBridge.closeScreen();
+                }
+            }
+
+            function handleRefreshRanges() {
+                if (isRunningEngine) return;
+                if (window.AndroidBridge && window.AndroidBridge.refreshRanges) {
+                    window.AndroidBridge.refreshRanges();
+                }
+            }
+
+            function handleCopyLogs() {
+                const logsStr = allLogsText.join('\n');
+                if (window.AndroidBridge && window.AndroidBridge.copyLogs) {
+                    window.AndroidBridge.copyLogs(logsStr);
+                }
+            }
+
+            function handleClearLogs() {
+                allLogsText = [];
+                const container = document.getElementById('consoleLogs');
+                container.innerHTML = '<div class="log-line">>_ Terminal Cleared.</div>';
+            }
+
+            // Called by Kotlin to push stats & engine state
+            window.updateStatsAndState = function(running, enabled, success, noAcc, exist, failed, proxy, notice) {
+                isRunningEngine = running;
+                isTerminalEnabled = enabled;
+
+                document.getElementById('statSuccess').innerText = success;
+                document.getElementById('statNoAcc').innerText = noAcc;
+                document.getElementById('statExist').innerText = exist;
+                document.getElementById('statFailed').innerText = failed;
+                document.getElementById('proxyText').innerText = '🌐 Proxy: ' + proxy;
+
+                const statusDot = document.getElementById('statusDot');
+                const disabledTag = document.getElementById('disabledTag');
+                const adminNotice = document.getElementById('adminNotice');
+                const btnStart = document.getElementById('btnStart');
+                const btnStop = document.getElementById('btnStop');
+
+                if (!enabled) {
+                    statusDot.className = 'status-dot disabled';
+                    disabledTag.style.display = 'inline';
+                    adminNotice.style.display = 'block';
+                    adminNotice.innerText = '⚠️ ' + notice;
+                    btnStart.disabled = true;
+                } else {
+                    disabledTag.style.display = 'none';
+                    adminNotice.style.display = 'none';
+                    btnStart.disabled = false;
+
+                    if (running) {
+                        statusDot.className = 'status-dot running';
+                        btnStart.style.display = 'none';
+                        btnStop.style.display = 'flex';
+                    } else {
+                        statusDot.className = 'status-dot';
+                        btnStart.style.display = 'flex';
+                        btnStop.style.display = 'none';
+                    }
+                }
+            };
+
+            // Called by Kotlin to update ranges
+            window.updateRanges = function(ranges) {
+                const container = document.getElementById('chipsContainer');
+                container.innerHTML = '';
+                const rangeInput = document.getElementById('rangeInput');
+
+                if (ranges && ranges.length > 0) {
+                    if (!rangeInput.value) {
+                        rangeInput.value = ranges[0];
+                    }
+                    ranges.slice(0, 12).forEach((r) => {
+                        const chip = document.createElement('div');
+                        chip.className = 'chip' + (rangeInput.value === r ? ' selected' : '');
+                        chip.innerText = r;
+                        chip.onclick = function() {
+                            if (!isRunningEngine) {
+                                rangeInput.value = r;
+                                document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+                                chip.classList.add('selected');
+                            }
+                        };
+                        container.appendChild(chip);
+                    });
+                }
+            };
+
+            // Fast incremental log appending (Zero lag)
+            window.appendTerminalLogs = function(newLines) {
+                const container = document.getElementById('consoleLogs');
+                newLines.forEach((line) => {
+                    allLogsText.push(line);
+                    const div = document.createElement('div');
+                    div.className = 'log-line';
+                    
+                    if (line.includes('[SUCCESS]') || line.includes('OTP Code:') || line.includes('DONE')) {
+                        div.className = 'log-line log-success';
+                    } else if (line.includes('[FAILED]') || line.includes('[ERROR]') || line.includes('❌')) {
+                        div.className = 'log-line log-error';
+                    } else if (line.includes('[WARNING]') || line.includes('[EXISTS]') || line.includes('⚠️')) {
+                        div.className = 'log-line log-warning';
+                    } else if (line.includes('Got Number:') || line.includes('📱')) {
+                        div.className = 'log-line log-info';
+                    } else if (line.includes('[SYSTEM]') || line.includes('[CONFIG]') || line.includes('🚀')) {
+                        div.className = 'log-line log-system';
+                    }
+
+                    div.innerText = line;
+                    container.appendChild(div);
+                });
+
+                // Auto scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            };
+
+            window.clearTerminalLogs = function() {
+                handleClearLogs();
+            };
+        </script>
+    </body>
+    </html>
+    """.trimIndent()
 }

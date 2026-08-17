@@ -815,11 +815,9 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
         if (uiState.showTerminalAutoOtp) {
             TerminalAutoOtpScreen(
                 onClose = viewModel::closeTerminalAutoOtp,
-                onStart = { range, manualList, useManual, count, threads, method, isFindAccountEnabled, password ->
+                onStart = { range, count, threads, method, isFindAccountEnabled, password ->
                     viewModel.startTerminalAutoOtp(
                         range = range,
-                        manualNumbersList = manualList,
-                        useManualMode = useManual,
                         totalAccounts = count,
                         threadCount = threads,
                         method = method,
@@ -834,7 +832,6 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                 proxyStatus = uiState.proxyStatus,
                 initialPassword = uiState.passwordInput,
                 isTerminalEnabledByAdmin = uiState.isTerminalEnabledByAdmin,
-                isManualNumbersEnabledByAdmin = uiState.isManualNumbersEnabledByAdmin,
                 terminalDisabledNotice = uiState.terminalDisabledNotice,
                 successCount = uiState.terminalSuccessCount,
                 noAccountCount = uiState.terminalNoAccountCount,
