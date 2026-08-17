@@ -1,63 +1,35 @@
 package com.example.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
+import android.annotation.SuppressLint
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.json.JSONObject
 
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun AuthScreen(
     viewModel: MainViewModel,
     onAuthSuccess: () -> Unit
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val focusManager = LocalFocusManager.current
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0 = Login, 1 = Signup
-
-    // Login Form State
-    var loginEmail by rememberSaveable { mutableStateOf("") }
-    var loginPassword by rememberSaveable { mutableStateOf("") }
-    var loginPasswordVisible by rememberSaveable { mutableStateOf(false) }
-
-    // Signup Form State
-    var signupFirstName by rememberSaveable { mutableStateOf("") }
-    var signupLastName by rememberSaveable { mutableStateOf("") }
-    var signupTelegram by rememberSaveable { mutableStateOf("") }
-    var signupEmail by rememberSaveable { mutableStateOf("") }
-    var signupPassword by rememberSaveable { mutableStateOf("") }
-    var signupPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -65,631 +37,485 @@ fun AuthScreen(
         }
     }
 
+    // Sync Loading / Error / Success state into Auth HTML
+    LaunchedEffect(uiState.isAuthLoading, uiState.authError, uiState.authSuccess) {
+        val webView = webViewRef ?: return@LaunchedEffect
+        val stateObj = JSONObject().apply {
+            put("isLoading", uiState.isAuthLoading)
+            put("error", uiState.authError ?: "")
+            put("success", uiState.authSuccess ?: "")
+        }
+        val script = "if (window.updateAuthState) { window.updateAuthState($stateObj); }"
+        webView.evaluateJavascript(script, null)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFDCE9F0))
+            .background(Color(0xFF0F172A))
             .systemBarsPadding()
-            .imePadding(),
-        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Main Card (Design specs from user prompt)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 440.dp)
-                    .shadow(elevation = 12.dp, shape = RoundedCornerShape(32.dp), spotColor = Color(0x331877F2)),
-                shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F7FC)),
-                border = BorderStroke(1.dp, Color(0xFFBED3E0))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 22.dp, vertical = 26.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Header with Circular Facebook Logo & FB TOOLS Title
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                                .border(1.dp, Color(0xFFBED3E0), CircleShape)
-                                .shadow(2.dp, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "f",
-                                color = Color(0xFF1877F2),
-                                fontSize = 38.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.SansSerif
-                            )
-                        }
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    webViewRef = this
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
+                    setBackgroundColor(android.graphics.Color.parseColor("#0F172A"))
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "FB ",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF1A3F52)
-                            )
-                            Text(
-                                text = "TOOLS",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF1877F2)
-                            )
-                        }
+                    // Zero Lag Hardware Acceleration
+                    setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
-                        Text(
-                            text = "Facebook Automation & Account Suite",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF4A6B82),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    // Rounded Pill Tab Switcher
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp)
-                            .clip(RoundedCornerShape(23.dp))
-                            .background(Color(0xFFD4E3ED))
-                            .padding(4.dp)
-                    ) {
-                        Row(modifier = Modifier.fillMaxSize()) {
-                            // Login Tab
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(if (selectedTab == 0) Color.White else Color.Transparent)
-                                    .clickable(
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    ) {
-                                        viewModel.clearAuthMessages()
-                                        selectedTab = 0
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = null,
-                                        tint = if (selectedTab == 0) Color(0xFF1877F2) else Color(0xFF6E8E9E),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = "Login",
-                                        fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 14.sp,
-                                        color = if (selectedTab == 0) Color(0xFF1A3F52) else Color(0xFF6E8E9E)
-                                    )
-                                }
-                            }
-
-                            // Sign Up Tab
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(if (selectedTab == 1) Color.White else Color.Transparent)
-                                    .clickable(
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    ) {
-                                        viewModel.clearAuthMessages()
-                                        selectedTab = 1
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PersonAdd,
-                                        contentDescription = null,
-                                        tint = if (selectedTab == 1) Color(0xFF1877F2) else Color(0xFF6E8E9E),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = "Sign Up",
-                                        fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 14.sp,
-                                        color = if (selectedTab == 1) Color(0xFF1A3F52) else Color(0xFF6E8E9E)
-                                    )
-                                }
-                            }
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                            return false
                         }
                     }
 
-                    // Alert Messages (Error / Success)
-                    AnimatedVisibility(
-                        visible = uiState.authError != null || uiState.authSuccess != null,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        if (uiState.authError != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFFEE2E2))
-                                    .border(1.dp, Color(0xFFF87171), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("⚠️", fontSize = 14.sp)
-                                    Text(
-                                        text = uiState.authError ?: "",
-                                        color = Color(0xFF991B1B),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    IconButton(
-                                        onClick = { viewModel.clearAuthMessages() },
-                                        modifier = Modifier.size(20.dp)
-                                    ) {
-                                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF991B1B), modifier = Modifier.size(14.dp))
-                                    }
-                                }
-                            }
-                        } else if (uiState.authSuccess != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFDCFCE7))
-                                    .border(1.dp, Color(0xFF4ADE80), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("✅", fontSize = 14.sp)
-                                    Text(
-                                        text = uiState.authSuccess ?: "",
-                                        color = Color(0xFF166534),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    IconButton(
-                                        onClick = { viewModel.clearAuthMessages() },
-                                        modifier = Modifier.size(20.dp)
-                                    ) {
-                                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF166534), modifier = Modifier.size(14.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    addJavascriptInterface(AuthWebInterface(
+                        context = ctx,
+                        viewModel = viewModel
+                    ), "AndroidAuth")
 
-                    // Forms
-                    if (selectedTab == 0) {
-                        // ----------------- LOGIN FORM -----------------
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            // Email Field
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(Icons.Default.Email, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(14.dp))
-                                    Text(
-                                        text = "Email Address",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2C4A5E)
-                                    )
-                                }
-                                OutlinedTextField(
-                                    value = loginEmail,
-                                    onValueChange = { loginEmail = it },
-                                    placeholder = { Text("you@example.com", color = Color(0xFF8FA9BA), fontSize = 13.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(24.dp),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White,
-                                        focusedBorderColor = Color(0xFF1877F2),
-                                        unfocusedBorderColor = Color(0xFFBED3E0),
-                                        focusedTextColor = Color(0xFF1A3F52),
-                                        unfocusedTextColor = Color(0xFF1A3F52)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            // Password Field
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(14.dp))
-                                    Text(
-                                        text = "Password",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2C4A5E)
-                                    )
-                                }
-                                OutlinedTextField(
-                                    value = loginPassword,
-                                    onValueChange = { loginPassword = it },
-                                    placeholder = { Text("••••••••", color = Color(0xFF8FA9BA), fontSize = 13.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(24.dp),
-                                    visualTransformation = if (loginPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                                    keyboardActions = KeyboardActions(
-                                        onDone = {
-                                            focusManager.clearFocus()
-                                            if (loginEmail.isNotBlank() && loginPassword.isNotBlank()) {
-                                                viewModel.logInUser(loginEmail.trim(), loginPassword) { _, _ -> }
-                                            }
-                                        }
-                                    ),
-                                    trailingIcon = {
-                                        IconButton(onClick = { loginPasswordVisible = !loginPasswordVisible }) {
-                                            Icon(
-                                                imageVector = if (loginPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                contentDescription = "Toggle password",
-                                                tint = Color(0xFF6E8E9E),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White,
-                                        focusedBorderColor = Color(0xFF1877F2),
-                                        unfocusedBorderColor = Color(0xFFBED3E0),
-                                        focusedTextColor = Color(0xFF1A3F52),
-                                        unfocusedTextColor = Color(0xFF1A3F52)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            // Submit Button
-                            Button(
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    viewModel.clearAuthMessages()
-                                    viewModel.logInUser(loginEmail.trim(), loginPassword) { _, _ -> }
-                                },
-                                enabled = !uiState.isAuthLoading && loginEmail.isNotBlank() && loginPassword.isNotBlank(),
-                                shape = RoundedCornerShape(26.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp)
-                            ) {
-                                if (uiState.isAuthLoading) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        strokeWidth = 2.dp,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                } else {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                        Text("Log In", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
-                                    }
-                                }
-                            }
-
-                            // Footer Switch Link
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "New user? ",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF4A6B82)
-                                )
-                                Text(
-                                    text = "Sign up",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1877F2),
-                                    modifier = Modifier.clickable {
-                                        viewModel.clearAuthMessages()
-                                        selectedTab = 1
-                                    }
-                                )
-                            }
-                        }
-                    } else {
-                        // ----------------- SIGN UP FORM -----------------
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // First & Last Name
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(13.dp))
-                                        Text("First Name", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2C4A5E))
-                                    }
-                                    OutlinedTextField(
-                                        value = signupFirstName,
-                                        onValueChange = { signupFirstName = it },
-                                        placeholder = { Text("John", color = Color(0xFF8FA9BA), fontSize = 12.sp) },
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(20.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedContainerColor = Color.White,
-                                            unfocusedContainerColor = Color.White,
-                                            focusedBorderColor = Color(0xFF1877F2),
-                                            unfocusedBorderColor = Color(0xFFBED3E0),
-                                            focusedTextColor = Color(0xFF1A3F52),
-                                            unfocusedTextColor = Color(0xFF1A3F52)
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(13.dp))
-                                        Text("Last Name", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2C4A5E))
-                                    }
-                                    OutlinedTextField(
-                                        value = signupLastName,
-                                        onValueChange = { signupLastName = it },
-                                        placeholder = { Text("Doe", color = Color(0xFF8FA9BA), fontSize = 12.sp) },
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(20.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedContainerColor = Color.White,
-                                            unfocusedContainerColor = Color.White,
-                                            focusedBorderColor = Color(0xFF1877F2),
-                                            unfocusedBorderColor = Color(0xFFBED3E0),
-                                            focusedTextColor = Color(0xFF1A3F52),
-                                            unfocusedTextColor = Color(0xFF1A3F52)
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-
-                            // Telegram Field
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(Icons.Default.Send, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(13.dp))
-                                    Text("Telegram Username", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2C4A5E))
-                                }
-                                OutlinedTextField(
-                                    value = signupTelegram,
-                                    onValueChange = { signupTelegram = it },
-                                    placeholder = { Text("@username", color = Color(0xFF8FA9BA), fontSize = 12.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(20.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White,
-                                        focusedBorderColor = Color(0xFF1877F2),
-                                        unfocusedBorderColor = Color(0xFFBED3E0),
-                                        focusedTextColor = Color(0xFF1A3F52),
-                                        unfocusedTextColor = Color(0xFF1A3F52)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            // Email Field
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(Icons.Default.Email, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(13.dp))
-                                    Text("Email Address", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2C4A5E))
-                                }
-                                OutlinedTextField(
-                                    value = signupEmail,
-                                    onValueChange = { signupEmail = it },
-                                    placeholder = { Text("you@example.com", color = Color(0xFF8FA9BA), fontSize = 12.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(20.dp),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White,
-                                        focusedBorderColor = Color(0xFF1877F2),
-                                        unfocusedBorderColor = Color(0xFFBED3E0),
-                                        focusedTextColor = Color(0xFF1A3F52),
-                                        unfocusedTextColor = Color(0xFF1A3F52)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            // Password Field
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(13.dp))
-                                    Text("Password", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2C4A5E))
-                                }
-                                OutlinedTextField(
-                                    value = signupPassword,
-                                    onValueChange = { signupPassword = it },
-                                    placeholder = { Text("••••••••", color = Color(0xFF8FA9BA), fontSize = 12.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(20.dp),
-                                    visualTransformation = if (signupPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                                    keyboardActions = KeyboardActions(
-                                        onDone = {
-                                            focusManager.clearFocus()
-                                            if (signupEmail.isNotBlank() && signupPassword.isNotBlank()) {
-                                                viewModel.signUpUser(signupFirstName.trim(), signupLastName.trim(), signupTelegram.trim(), signupEmail.trim(), signupPassword) { success, _ ->
-                                                    if (success) {
-                                                        loginEmail = signupEmail
-                                                        loginPassword = signupPassword
-                                                        selectedTab = 0
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ),
-                                    trailingIcon = {
-                                        IconButton(onClick = { signupPasswordVisible = !signupPasswordVisible }) {
-                                            Icon(
-                                                imageVector = if (signupPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                contentDescription = "Toggle password",
-                                                tint = Color(0xFF6E8E9E),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White,
-                                        focusedBorderColor = Color(0xFF1877F2),
-                                        unfocusedBorderColor = Color(0xFFBED3E0),
-                                        focusedTextColor = Color(0xFF1A3F52),
-                                        unfocusedTextColor = Color(0xFF1A3F52)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            // Submit Button
-                            Button(
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    viewModel.clearAuthMessages()
-                                    viewModel.signUpUser(
-                                        signupFirstName.trim(),
-                                        signupLastName.trim(),
-                                        signupTelegram.trim(),
-                                        signupEmail.trim(),
-                                        signupPassword
-                                    ) { success, _ ->
-                                        if (success) {
-                                            loginEmail = signupEmail
-                                            loginPassword = signupPassword
-                                            selectedTab = 0
-                                        }
-                                    }
-                                },
-                                enabled = !uiState.isAuthLoading && signupEmail.isNotBlank() && signupPassword.isNotBlank(),
-                                shape = RoundedCornerShape(26.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp)
-                            ) {
-                                if (uiState.isAuthLoading) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        strokeWidth = 2.dp,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                } else {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                        Text("Sign Up", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
-                                    }
-                                }
-                            }
-
-                            // Footer Switch Link
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Already have an account? ",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF4A6B82)
-                                )
-                                Text(
-                                    text = "Log in",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1877F2),
-                                    modifier = Modifier.clickable {
-                                        viewModel.clearAuthMessages()
-                                        selectedTab = 0
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    loadDataWithBaseURL(null, getAuthScreenHtml(), "text/html", "UTF-8", null)
                 }
+            },
+            update = {
+                webViewRef = it
             }
+        )
+    }
+}
+
+class AuthWebInterface(
+    private val context: Context,
+    private val viewModel: MainViewModel
+) {
+    @JavascriptInterface
+    fun doLogin(email: String, pass: String) {
+        Handler(Looper.getMainLooper()).post {
+            viewModel.clearAuthMessages()
+            viewModel.logInUser(email.trim(), pass, onComplete = { _, _ -> })
         }
     }
+
+    @JavascriptInterface
+    fun doSignUp(first: String, last: String, tg: String, email: String, pass: String) {
+        Handler(Looper.getMainLooper()).post {
+            viewModel.clearAuthMessages()
+            viewModel.signUpUser(
+                firstName = first.trim(),
+                lastName = last.trim(),
+                telegramUsername = tg.trim(),
+                email = email.trim(),
+                password = pass,
+                onComplete = { _, _ -> }
+            )
+        }
+    }
+
+    @JavascriptInterface
+    fun clearMessages() {
+        Handler(Looper.getMainLooper()).post {
+            viewModel.clearAuthMessages()
+        }
+    }
+}
+
+private fun getAuthScreenHtml(): String {
+    return """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FB TOOLS Authentication</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      background: linear-gradient(135deg, #0b1120 0%, #0f172a 50%, #1e1b4b 100%);
+      color: #f8fafc;
+      font-size: 13px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+    
+    .auth-container {
+      width: 100%;
+      max-width: 420px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      animation: fadeIn 0.2s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Logo & Header */
+    .header-box {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo-badge {
+      width: 54px;
+      height: 54px;
+      background: #1877f2;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px auto;
+      box-shadow: 0 4px 16px rgba(24, 119, 242, 0.4);
+    }
+    .logo-f {
+      font-size: 36px;
+      font-weight: 900;
+      color: white;
+      line-height: 1;
+      font-family: sans-serif;
+      margin-top: 4px;
+    }
+    .brand-title {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+    .brand-fb { color: #f8fafc; }
+    .brand-tool { color: #38bdf8; }
+    .brand-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    /* Tab Switcher */
+    .tab-pill {
+      display: flex;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 30px;
+      padding: 3px;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex: 1;
+      text-align: center;
+      padding: 9px 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: #94a3b8;
+      border-radius: 25px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: #1877f2;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(24, 119, 242, 0.35);
+    }
+
+    /* Form Fields */
+    .form-pane {
+      display: none;
+    }
+    .form-pane.active {
+      display: block;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
+      margin-bottom: 5px;
+    }
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .form-control {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #ffffff;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-control:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+    .pwd-toggle {
+      position: absolute;
+      right: 12px;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
+    /* Action Button */
+    .btn-submit {
+      width: 100%;
+      background: #1877f2;
+      color: white;
+      border: none;
+      padding: 13px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+    }
+    .btn-submit:active {
+      transform: scale(0.98);
+    }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Alert Banner */
+    .alert-box {
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      display: none;
+    }
+    .alert-error {
+      background: #450a0a;
+      border: 1px solid #991b1b;
+      color: #fca5a5;
+    }
+    .alert-success {
+      background: #052e16;
+      border: 1px solid #166534;
+      color: #86efac;
+    }
+
+    .footer-link {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .footer-link span {
+      color: #38bdf8;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-container">
+    <div class="header-box">
+      <div class="logo-badge">
+        <div class="logo-f">f</div>
+      </div>
+      <div class="brand-title">
+        <span class="brand-fb">FB</span> <span class="brand-tool">TOOLS</span>
+      </div>
+      <div class="brand-sub">Automation & Account Suite</div>
+    </div>
+
+    <!-- Alert Notices -->
+    <div id="alertBox" class="alert-box"></div>
+
+    <!-- Pill Tabs -->
+    <div class="tab-pill">
+      <button class="tab-btn active" id="tabLoginBtn" onclick="switchAuthTab(0)">🔒 Login</button>
+      <button class="tab-btn" id="tabSignupBtn" onclick="switchAuthTab(1)">📝 Sign Up</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="loginPane" class="form-pane active">
+      <div class="form-group">
+        <label class="form-label">Email / Username</label>
+        <input type="email" id="loginEmail" class="form-control" placeholder="user@gmail.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrapper">
+          <input type="password" id="loginPassword" class="form-control" placeholder="Enter password">
+          <span class="pwd-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
+        </div>
+      </div>
+      <button class="btn-submit" id="loginSubmitBtn" onclick="submitLogin()">
+        🚀 LOGIN TO DASHBOARD
+      </button>
+      <div class="footer-link">
+        Don't have an account? <span onclick="switchAuthTab(1)">Sign up here</span>
+      </div>
+    </div>
+
+    <!-- SIGN UP FORM -->
+    <div id="signupPane" class="form-pane">
+      <div style="display: flex; gap: 8px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">First Name</label>
+          <input type="text" id="signFirst" class="form-control" placeholder="First">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Last Name</label>
+          <input type="text" id="signLast" class="form-control" placeholder="Last">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telegram Username (@)</label>
+        <input type="text" id="signTg" class="form-control" placeholder="@username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" id="signEmail" class="form-control" placeholder="name@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Create Password</label>
+        <div class="input-wrapper">
+          <input type="password" id="signPassword" class="form-control" placeholder="At least 6 characters">
+          <span class="pwd-toggle" onclick="togglePassword('signPassword', this)">👁️</span>
+        </div>
+      </div>
+      <button class="btn-submit" id="signupSubmitBtn" onclick="submitSignUp()">
+        ✨ CREATE ACCOUNT
+      </button>
+      <div class="footer-link">
+        Already registered? <span onclick="switchAuthTab(0)">Log in here</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    var currentTab = 0;
+
+    function switchAuthTab(index) {
+      currentTab = index;
+      document.getElementById('loginPane').classList.toggle('active', index === 0);
+      document.getElementById('signupPane').classList.toggle('active', index === 1);
+      document.getElementById('tabLoginBtn').classList.toggle('active', index === 0);
+      document.getElementById('tabSignupBtn').classList.toggle('active', index === 1);
+      hideAlert();
+      AndroidAuth.clearMessages();
+    }
+
+    function togglePassword(inputId, elem) {
+      var inp = document.getElementById(inputId);
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        elem.innerText = '🔒';
+      } else {
+        inp.type = 'password';
+        elem.innerText = '👁️';
+      }
+    }
+
+    function submitLogin() {
+      var email = document.getElementById('loginEmail').value.trim();
+      var pass = document.getElementById('loginPassword').value;
+      if (!email || !pass) {
+        showAlert('Please enter both email and password', 'error');
+        return;
+      }
+      document.getElementById('loginSubmitBtn').disabled = true;
+      document.getElementById('loginSubmitBtn').innerText = 'Logging in... ⏳';
+      AndroidAuth.doLogin(email, pass);
+    }
+
+    function submitSignUp() {
+      var first = document.getElementById('signFirst').value.trim();
+      var last = document.getElementById('signLast').value.trim();
+      var tg = document.getElementById('signTg').value.trim();
+      var email = document.getElementById('signEmail').value.trim();
+      var pass = document.getElementById('signPassword').value;
+
+      if (!email || !pass) {
+        showAlert('Email and Password are required!', 'error');
+        return;
+      }
+      if (pass.length < 6) {
+        showAlert('Password must be at least 6 characters!', 'error');
+        return;
+      }
+
+      document.getElementById('signupSubmitBtn').disabled = true;
+      document.getElementById('signupSubmitBtn').innerText = 'Creating account... ⏳';
+      AndroidAuth.doSignUp(first, last, tg, email, pass);
+    }
+
+    function showAlert(text, type) {
+      var box = document.getElementById('alertBox');
+      box.innerText = text;
+      box.className = 'alert-box ' + (type === 'error' ? 'alert-error' : 'alert-success');
+      box.style.display = 'block';
+    }
+
+    function hideAlert() {
+      var box = document.getElementById('alertBox');
+      box.style.display = 'none';
+    }
+
+    // Called from Kotlin on state updates
+    window.updateAuthState = function(state) {
+      var logBtn = document.getElementById('loginSubmitBtn');
+      var signBtn = document.getElementById('signupSubmitBtn');
+
+      if (state.isLoading) {
+        logBtn.disabled = true;
+        signBtn.disabled = true;
+      } else {
+        logBtn.disabled = false;
+        logBtn.innerText = '🚀 LOGIN TO DASHBOARD';
+        signBtn.disabled = false;
+        signBtn.innerText = '✨ CREATE ACCOUNT';
+      }
+
+      if (state.error) {
+        showAlert('❌ ' + state.error, 'error');
+      } else if (state.success) {
+        showAlert('✅ ' + state.success, 'success');
+        if (currentTab === 1) {
+          setTimeout(function() {
+            switchAuthTab(0);
+          }, 1200);
+        }
+      }
+    };
+  </script>
+</body>
+</html>
+    """.trimIndent()
 }

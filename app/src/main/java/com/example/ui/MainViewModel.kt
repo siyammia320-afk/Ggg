@@ -121,6 +121,7 @@ data class AccountCreatorUiState(
     val downloadProgress: Int = 0,
     val updateDownloadError: String? = null,
     val showTerminalAutoOtp: Boolean = false,
+    val showAdminPanel: Boolean = false,
     val isTerminalRunning: Boolean = false,
     val isTerminalEnabledByAdmin: Boolean = true,
     val isManualNumbersEnabledByAdmin: Boolean = true,
@@ -1833,6 +1834,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!_uiState.value.isDownloadingUpdate) {
             _uiState.value = _uiState.value.copy(showUpdateDialog = false)
         }
+    }
+
+    fun openAdminPanel() {
+        _uiState.value = _uiState.value.copy(showAdminPanel = true)
+    }
+
+    fun closeAdminPanel() {
+        _uiState.value = _uiState.value.copy(showAdminPanel = false)
     }
 }
 

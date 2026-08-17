@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import com.example.ui.AuthScreen
 import com.example.ui.TerminalAutoOtpScreen
+import com.example.ui.AdminPanelScreen
 import com.example.ui.MainDashboardHtmlContent
 import android.content.Intent
 import android.net.Uri
@@ -249,6 +250,13 @@ fun MainAppScreen(viewModel: com.example.ui.MainViewModel = androidx.lifecycle.v
                             )
                         }
                     }
+                    IconButton(onClick = { viewModel.openAdminPanel() }) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = "Admin Panel",
+                            tint = Color(0xFFF59E0B)
+                        )
+                    }
                     IconButton(onClick = { viewModel.logOutUser() }) {
                         Icon(
                             imageVector = Icons.Default.PowerSettingsNew,
@@ -340,6 +348,12 @@ fun MainAppScreen(viewModel: com.example.ui.MainViewModel = androidx.lifecycle.v
 
         if (uiState.showUpdateDialog) {
             AppUpdateDialog(uiState = uiState, viewModel = viewModel)
+        }
+
+        if (uiState.showAdminPanel) {
+            AdminPanelScreen(
+                onClose = { viewModel.closeAdminPanel() }
+            )
         }
     }
 }
@@ -488,18 +502,37 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                             )
                         }
 
-                        IconButton(
-                            onClick = viewModel::openProxyDialog,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .testTag("settings_proxy_btn")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Proxy Settings",
-                                tint = Color(0xFF94A3B8),
-                                modifier = Modifier.size(18.dp)
-                            )
+                            IconButton(
+                                onClick = viewModel::openAdminPanel,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("admin_panel_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shield,
+                                    contentDescription = "Admin Panel",
+                                    tint = Color(0xFFF59E0B),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            IconButton(
+                                onClick = viewModel::openProxyDialog,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("settings_proxy_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Proxy Settings",
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
 
@@ -632,79 +665,37 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         }
                     }
 
-                    // Active Tab Content
+                    // Active Tab Content rendered via Ultra-Fast Zero-Lag Hardware Accelerated HTML Dashboard
                     Box(modifier = Modifier.fillMaxSize()) {
-                        when (selectedTabIndex) {
-                            0 -> GetNumberTabContent(
-                                uiState = uiState,
-                                onRangeClicked = viewModel::onRangeClicked,
-                                onCustomRangeChange = viewModel::onCustomRangeChanged,
-                                onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
-                                onRefreshRanges = viewModel::refreshFacebookRanges,
-                                onCopyDeviceId = { viewModel.copyToClipboard(context, it, "DEVICE ID") },
-                                onCheckActivation = viewModel::checkDeviceActivationManually,
-                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE NUMBER") },
-                                onGoToCreate = { selectedTabIndex = 1 },
-                                onOpenApiKeyDialog = viewModel::openApiKeyDialog
-                            )
-                            1 -> CreateAccountTabContent(
-                                uiState = uiState,
-                                onPhoneChange = viewModel::onPhoneChanged,
-                                onPasswordChange = viewModel::onPasswordChanged,
-                                onCountrySelected = viewModel::onCountrySelected,
-                                onCreateAccount = viewModel::createAccount,
-                                onFindAccount = viewModel::findAccount,
-                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
-                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
-                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
-                                onGoToGetNumber = { selectedTabIndex = 0 },
-                                onOpenProxySettings = viewModel::openProxyDialog,
-                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
-                            )
-                            2 -> OfficialCreateTabContent(
-                                uiState = uiState,
-                                onPhoneChange = viewModel::onPhoneChanged,
-                                onCountrySelected = viewModel::onCountrySelected,
-                                onCreateAccount = { viewModel.createAccountOfficial(context) },
-                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
-                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
-                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
-                                onOpenProxySettings = viewModel::openProxyDialog,
-                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
-                            )
-                            3 -> EmailCreateTabContent(
-                                uiState = uiState,
-                                onEmailChange = viewModel::onEmailChanged,
-                                onPasswordChange = viewModel::onPasswordChanged,
-                                onCountrySelected = viewModel::onCountrySelected,
-                                onGenerateRandomEmail = viewModel::generateRandomEmail,
-                                onCreateAccountWithEmail = { viewModel.createAccountWithEmail(context) },
-                                onCopyEmail = { viewModel.copyToClipboard(context, it, "EMAIL") },
-                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
-                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
-                                onOpenProxySettings = viewModel::openProxyDialog,
-                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
-                            )
-                            4 -> InboxTabContent(
-                                activeNumbers = uiState.activeNumbers,
-                                onCopyOtp = { viewModel.copyToClipboard(context, it, "OTP") },
-                                onCopyPhone = { viewModel.copyToClipboard(context, it, "PHONE") },
-                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
-                                onClearInbox = viewModel::clearInbox,
-                                onReloadInbox = viewModel::manualRefreshOtps
-                            )
-                            5 -> AccountHistoryTabContent(
-                                accounts = accountsHistory,
-                                onClearAll = viewModel::clearAllAccounts,
-                                onDeleteOne = { id -> viewModel.deleteAccount(id) },
-                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
-                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
-                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
-                                liveStatuses = uiState.liveStatuses,
-                                isCheckingLive = uiState.isCheckingLive,
-                                onCheckLive = viewModel::checkLiveStatusForSavedAccounts
-                            )
-                        }
+                        MainDashboardHtmlContent(
+                            uiState = uiState,
+                            accountsHistory = accountsHistory,
+                            selectedTabIndex = selectedTabIndex,
+                            onTabSelected = { selectedTabIndex = it },
+                            onRangeClicked = viewModel::onRangeClicked,
+                            onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
+                            onCustomRangeChange = viewModel::onCustomRangeChanged,
+                            onRefreshRanges = viewModel::refreshFacebookRanges,
+                            onCopyText = { text, label -> viewModel.copyToClipboard(context, text, label) },
+                            onCheckActivation = viewModel::checkDeviceActivationManually,
+                            onPhoneChange = viewModel::onPhoneChanged,
+                            onPasswordChange = viewModel::onPasswordChanged,
+                            onEmailChange = viewModel::onEmailChanged,
+                            onCountrySelected = viewModel::onCountrySelected,
+                            onCreateAccount = viewModel::createAccount,
+                            onFindAccount = viewModel::findAccount,
+                            onCreateOfficialAccount = { viewModel.createAccountOfficial(context) },
+                            onCreateEmailAccount = { viewModel.createAccountWithEmail(context) },
+                            onGenerateRandomEmail = viewModel::generateRandomEmail,
+                            onOpenProxySettings = viewModel::openProxyDialog,
+                            onCheckLiveSingle = viewModel::checkLiveStatusForSingleAccount,
+                            onCheckLiveAll = viewModel::checkLiveStatusForSavedAccounts,
+                            onDeleteAccount = { viewModel.deleteAccount(it.id) },
+                            onClearAllAccounts = viewModel::clearAllAccounts,
+                            onClearInbox = viewModel::clearInbox,
+                            onReloadInbox = viewModel::manualRefreshOtps,
+                            onDismissMessage = viewModel::dismissMessage
+                        )
                     }
                 }
             }
@@ -835,6 +826,12 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                 failedCount = uiState.terminalFailedCount,
                 availableRanges = uiState.facebookRanges,
                 onRefreshRanges = viewModel::refreshFacebookRanges
+            )
+        }
+
+        if (uiState.showAdminPanel) {
+            AdminPanelScreen(
+                onClose = viewModel::closeAdminPanel
             )
         }
     }
