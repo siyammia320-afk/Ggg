@@ -157,7 +157,7 @@ fun MainDashboardHtmlContent(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 WebView(ctx).apply {
-                    setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+                    setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.useWideViewPort = true
@@ -167,6 +167,67 @@ fun MainDashboardHtmlContent(
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                             return false
+                        }
+
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            // Immediately push initial state once page finishes loading
+                            val stateJson = JSONObject().apply {
+                                put("selectedTab", selectedTabIndex)
+                                put("isCreating", uiState.isCreating)
+                                put("isFetchingNumber", uiState.isFetchingNumber)
+                                put("isFindingAccount", uiState.isFindingAccount)
+                                put("isCheckingLive", uiState.isCheckingLive)
+                                put("phoneInput", uiState.phoneInput)
+                                put("emailInput", uiState.emailInput)
+                                put("passwordInput", uiState.passwordInput)
+                                put("selectedCountryIndex", Country.values().indexOf(uiState.selectedCountry))
+                                put("proxyStatus", uiState.proxyStatus)
+                                put("deviceId", uiState.deviceId)
+                                put("isActivated", uiState.isActivated)
+                                put("errorMessage", uiState.errorMessage ?: "")
+                                put("successMessage", uiState.successMessage ?: "")
+                                put("ranges", JSONArray(uiState.facebookRanges))
+                                if (uiState.lastCreatedAccount != null) {
+                                    val accObj = JSONObject().apply {
+                                        put("uid", uiState.lastCreatedAccount.uid)
+                                        put("phoneOrEmail", uiState.lastCreatedAccount.phone)
+                                        put("password", uiState.lastCreatedAccount.password)
+                                        put("cookies", uiState.lastCreatedAccount.cookies)
+                                        put("timestamp", uiState.lastCreatedAccount.createdAt)
+                                    }
+                                    put("lastAccount", accObj)
+                                } else {
+                                    put("lastAccount", JSONObject.NULL)
+                                }
+                                val activeArr = JSONArray()
+                                uiState.activeNumbers.forEach { item ->
+                                    val itObj = JSONObject().apply {
+                                        put("phone", item.phone)
+                                        put("rangeCode", item.rangeCode)
+                                        put("timestamp", item.timestamp)
+                                        put("otp", item.otp ?: "")
+                                        put("accountUid", item.accountUid ?: "")
+                                    }
+                                    activeArr.put(itObj)
+                                }
+                                put("activeNumbers", activeArr)
+                                val historyArr = JSONArray()
+                                accountsHistory.forEach { acc ->
+                                    val hObj = JSONObject().apply {
+                                        put("uid", acc.uid)
+                                        put("phoneOrEmail", acc.phone)
+                                        put("password", acc.password)
+                                        put("cookies", acc.cookies)
+                                        put("timestamp", acc.createdAt)
+                                        put("isLive", uiState.liveStatuses[acc.uid])
+                                    }
+                                    historyArr.put(hObj)
+                                }
+                                put("accountsHistory", historyArr)
+                            }
+                            val script = "if (window.renderDashboard) { window.renderDashboard(" + stateJson.toString() + "); }"
+                            view?.evaluateJavascript(script, null)
                         }
                     }
 
