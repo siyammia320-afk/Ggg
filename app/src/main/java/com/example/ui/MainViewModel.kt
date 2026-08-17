@@ -41,6 +41,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.joinAll
+import java.util.concurrent.atomic.AtomicInteger
+
 data class VoltxActiveNumber(
     val phone: String,
     val rangeCode: String,
@@ -112,7 +118,10 @@ data class AccountCreatorUiState(
     val isCheckingUpdate: Boolean = false,
     val isDownloadingUpdate: Boolean = false,
     val downloadProgress: Int = 0,
-    val updateDownloadError: String? = null
+    val updateDownloadError: String? = null,
+    val showTerminalAutoOtp: Boolean = false,
+    val isTerminalRunning: Boolean = false,
+    val terminalLogs: List<String> = emptyList()
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -737,6 +746,187 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     proxyStatus = "DISCONNECTED (AUTO OFF)"
                 )
             }
+        }
+    }
+
+    private var terminalJob: Job? = null
+
+    fun openTerminalAutoOtp() {
+        _uiState.value = _uiState.value.copy(showTerminalAutoOtp = true)
+    }
+
+    fun closeTerminalAutoOtp() {
+        _uiState.value = _uiState.value.copy(showTerminalAutoOtp = false)
+    }
+
+    private fun appendTerminalLog(log: String) {
+        val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        val formatted = "[$time] $log"
+        _uiState.value = _uiState.value.copy(
+            terminalLogs = _uiState.value.terminalLogs + formatted
+        )
+    }
+
+    fun stopTerminalAutoOtp() {
+        terminalJob?.cancel()
+        terminalJob = null
+        appendTerminalLog("[SYSTEM] 🛑 Stopped by user. Active threads cancelling...")
+        _uiState.value = _uiState.value.copy(
+            isTerminalRunning = false,
+            proxyStatus = "DISCONNECTED (AUTO OFF)"
+        )
+    }
+
+    fun startTerminalAutoOtp(range: String, totalAccounts: Int, threadCount: Int, context: Context) {
+        if (range.isBlank() || totalAccounts <= 0) return
+        val threads = threadCount.coerceIn(1, 20)
+        val accountsToCreate = totalAccounts.coerceAtLeast(1)
+
+        terminalJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            isTerminalRunning = true,
+            terminalLogs = emptyList()
+        )
+
+        val currentState = _uiState.value
+        val useProxy = currentState.isProxyEnabled && currentState.proxyServer.isNotBlank() && currentState.proxyPort.isNotBlank()
+        val proxyServerToUse = if (useProxy) currentState.proxyServer else ""
+        val proxyPortToUse = if (useProxy) currentState.proxyPort else ""
+        val proxyUserToUse = if (useProxy) currentState.proxyUsername else ""
+        val proxyPassToUse = if (useProxy) currentState.proxyPassword else ""
+        val country = currentState.selectedCountry
+
+        terminalJob = viewModelScope.launch(Dispatchers.IO) {
+            appendTerminalLog("[SYSTEM] 🚀 Terminal Auto OTP Engine Started")
+            appendTerminalLog("[CONFIG] Range: $range | Total: $accountsToCreate | Threads: $threads | Method: NM OFFICIAL")
+            
+            if (useProxy) {
+                appendTerminalLog("[PROXY] 🌐 Connecting proxy $proxyServerToUse:$proxyPortToUse...")
+                delay(400)
+                _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED ($proxyServerToUse:$proxyPortToUse)")
+                appendTerminalLog("[PROXY] 🟢 Connected! Proxy active for all worker threads.")
+            } else {
+                appendTerminalLog("[PROXY] ⚠️ Direct connection (No proxy configured)")
+                _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (DIRECT)")
+            }
+
+            val completedCount = AtomicInteger(0)
+            val successCount = AtomicInteger(0)
+            val queue = Channel<Int>(Channel.UNLIMITED)
+            for (i in 1..accountsToCreate) {
+                queue.send(i)
+            }
+            queue.close()
+
+            val workers = (1..threads).map { threadId ->
+                launch {
+                    for (accountIndex in queue) {
+                        if (!isActive) break
+                        appendTerminalLog("[THREAD #$threadId] [Account $accountIndex/$accountsToCreate] ⏳ Requesting phone number for range $range...")
+                        
+                        var phoneNumber: String? = null
+                        try {
+                            phoneNumber = VoltxApiService.fetchPhoneNumber(range)
+                        } catch (e: Exception) {
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [ERROR] ${e.message}")
+                        }
+
+                        if (phoneNumber.isNullOrBlank()) {
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] ⚠️ No number returned. Retrying after 2s...")
+                            delay(2000)
+                            try {
+                                phoneNumber = VoltxApiService.fetchPhoneNumber(range)
+                            } catch (e: Exception) {
+                                // ignore
+                            }
+                            if (phoneNumber.isNullOrBlank()) {
+                                appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [FAILED] Could not get phone number. Skipping.")
+                                completedCount.incrementAndGet()
+                                continue
+                            }
+                        }
+
+                        val finalNumber = (phoneNumber ?: "").replace("+", "").trim()
+                        appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 📱 Got Number: +$finalNumber")
+                        
+                        // Register into active numbers for real-time OTP tracking
+                        withContext(Dispatchers.Main) {
+                            val activeItem = VoltxActiveNumber(
+                                phone = finalNumber,
+                                rangeCode = range,
+                                timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                            )
+                            val updated = _uiState.value.activeNumbers + activeItem
+                            _uiState.value = _uiState.value.copy(activeNumbers = updated)
+                            saveActiveNumbersToPrefs(updated)
+                        }
+
+                        appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] ⚙️ Executing NM OFFICIAL GraphQL Registration...")
+
+                        val result = try {
+                            FbAccountService.createAccountOfficial(
+                                phoneInput = finalNumber,
+                                country = country,
+                                proxyServer = proxyServerToUse,
+                                proxyPort = proxyPortToUse,
+                                proxyUsername = proxyUserToUse,
+                                proxyPassword = proxyPassToUse,
+                                customUserAgent = currentState.customUserAgent,
+                                isCustomUserAgentEnabled = currentState.isCustomUserAgentEnabled
+                            )
+                        } catch (e: Exception) {
+                            com.example.network.AccountResult(
+                                success = false,
+                                error = e.message ?: "Connection error"
+                            )
+                        }
+
+                        if (result.success && !result.uid.isNullOrBlank()) {
+                            val curSuccess = successCount.incrementAndGet()
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [SUCCESS] ✅ UID: ${result.uid} | Name: ${result.name} | Pass: ${result.password}")
+                            
+                            val entity = AccountEntity(
+                                phone = result.phone,
+                                uid = result.uid,
+                                name = result.name,
+                                password = result.password,
+                                cookies = result.cookies
+                            )
+                            val newId = accountDao.insertAccount(entity)
+                            val savedEntity = entity.copy(id = newId)
+
+                            appendRecordToCsv(result.uid, result.password, result.cookies)
+                            
+                            withContext(Dispatchers.Main) {
+                                val updatedActives = _uiState.value.activeNumbers.map {
+                                    if (it.phone == finalNumber) it.copy(accountUid = result.uid) else it
+                                }
+                                _uiState.value = _uiState.value.copy(
+                                    lastCreatedAccount = savedEntity,
+                                    activeNumbers = updatedActives
+                                )
+                            }
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 💾 Auto-saved to Database & account.csv (Total Success: $curSuccess/$accountsToCreate)")
+                        } else {
+                            val err = result.error ?: "Checkpoint / Blocked"
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [FAILED] ❌ $err")
+                        }
+
+                        completedCount.incrementAndGet()
+                        delay(800)
+                    }
+                }
+            }
+
+            workers.joinAll()
+
+            val finalSuccess = successCount.get()
+            appendTerminalLog("[SYSTEM] 🎉 All tasks finished! Target: $accountsToCreate | Created: $finalSuccess")
+            appendTerminalLog("[PROXY] 🔒 Disconnecting proxy automatically (AUTO OFF).")
+            _uiState.value = _uiState.value.copy(
+                isTerminalRunning = false,
+                proxyStatus = "DISCONNECTED (AUTO OFF)"
+            )
         }
     }
 

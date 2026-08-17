@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.ui.AuthScreen
+import com.example.ui.TerminalAutoOtpScreen
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -453,9 +454,35 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         .fillMaxWidth()
                         .background(Color(0xFFF1F5F9))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Button(
+                        onClick = viewModel::openTerminalAutoOtp,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF0F172A)
+                        ),
+                        shape = RoundedCornerShape(6.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("btn_terminal_auto_otp")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = null,
+                            tint = Color(0xFF38BDF8),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Name Terminal Auto OTP",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
                     IconButton(
                         onClick = viewModel::openProxyDialog,
                         modifier = Modifier.testTag("settings_proxy_btn")
@@ -782,6 +809,20 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                 uiState = uiState,
                 onSave = viewModel::saveApiKey,
                 onDismiss = viewModel::closeApiKeyDialog
+            )
+        }
+
+        if (uiState.showTerminalAutoOtp) {
+            TerminalAutoOtpScreen(
+                onClose = viewModel::closeTerminalAutoOtp,
+                onStart = { range, count, threads ->
+                    viewModel.startTerminalAutoOtp(range, count, threads, context)
+                },
+                onStop = viewModel::stopTerminalAutoOtp,
+                isRunning = uiState.isTerminalRunning,
+                logs = uiState.terminalLogs,
+                proxyStatus = uiState.proxyStatus,
+                availableRanges = uiState.facebookRanges
             )
         }
     }
