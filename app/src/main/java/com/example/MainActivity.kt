@@ -1,5 +1,8 @@
 package com.example
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import com.example.ui.AuthScreen
 import com.example.ui.TerminalAutoOtpScreen
 import com.example.ui.MainDashboardHtmlContent
@@ -450,49 +453,117 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
         Scaffold(
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             topBar = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFF1F5F9))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = viewModel::openTerminalAutoOtp,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF0F172A)
-                        ),
-                        shape = RoundedCornerShape(6.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
                         modifier = Modifier
-                            .height(34.dp)
-                            .testTag("btn_terminal_auto_otp")
+                            .fillMaxWidth()
+                            .background(Color(0xFF0F172A))
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Send,
-                            contentDescription = null,
-                            tint = Color(0xFF38BDF8),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Terminal",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Button(
+                            onClick = viewModel::openTerminalAutoOtp,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1E293B)
+                            ),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            modifier = Modifier
+                                .height(32.dp)
+                                .testTag("btn_terminal_auto_otp")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = null,
+                                tint = Color(0xFF38BDF8),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Terminal",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
+                        IconButton(
+                            onClick = viewModel::openProxyDialog,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .testTag("settings_proxy_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Proxy Settings",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = viewModel::openProxyDialog,
-                        modifier = Modifier.testTag("settings_proxy_btn")
+                    // Modern Tab Row for FB TOOL features
+                    val tabTitles = listOf("RANGE", "NM LIMIT", "NM OFFICAL", "EML LIMIT", "OTP", "SAV")
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedTabIndex,
+                        containerColor = Color(0xFF111827),
+                        contentColor = Color(0xFF38BDF8),
+                        edgePadding = 4.dp,
+                        indicator = { tabPositions ->
+                            if (selectedTabIndex < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                    color = Color(0xFF38BDF8),
+                                    height = 3.dp
+                                )
+                            }
+                        },
+                        divider = {
+                            HorizontalDivider(color = Color(0xFF1F2937))
+                        }
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Proxy Settings",
-                            tint = Color(0xFF1E293B)
-                        )
+                        tabTitles.forEachIndexed { index, title ->
+                            val isSelected = selectedTabIndex == index
+                            val badgeCount = when (index) {
+                                4 -> uiState.activeNumbers.size
+                                5 -> accountsHistory.size
+                                else -> 0
+                            }
+
+                            Tab(
+                                selected = isSelected,
+                                onClick = { selectedTabIndex = index },
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                                        )
+                                        if (badgeCount > 0) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (isSelected) Color(0xFF2563EB) else Color(0xFF374151))
+                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                            ) {
+                                                Text(
+                                                    text = badgeCount.toString(),
+                                                    color = Color.White,
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -501,37 +572,141 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(Color(0xFF0B0F19))
+                    .background(Color(0xFF0F172A))
             ) {
-                MainDashboardHtmlContent(
-                    uiState = uiState,
-                    accountsHistory = accountsHistory,
-                    selectedTabIndex = selectedTabIndex,
-                    onTabSelected = { idx: Int -> selectedTabIndex = idx },
-                    onRangeClicked = viewModel::onRangeClicked,
-                    onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
-                    onCustomRangeChange = viewModel::onCustomRangeChanged,
-                    onRefreshRanges = viewModel::refreshFacebookRanges,
-                    onCopyText = { text: String, label: String -> viewModel.copyToClipboard(context, text, label) },
-                    onCheckActivation = viewModel::checkDeviceActivationManually,
-                    onPhoneChange = viewModel::onPhoneChanged,
-                    onPasswordChange = viewModel::onPasswordChanged,
-                    onEmailChange = viewModel::onEmailChanged,
-                    onCountrySelected = viewModel::onCountrySelected,
-                    onCreateAccount = viewModel::createAccount,
-                    onFindAccount = viewModel::findAccount,
-                    onCreateOfficialAccount = { viewModel.createAccountOfficial(context) },
-                    onCreateEmailAccount = { viewModel.createAccountWithEmail(context) },
-                    onGenerateRandomEmail = viewModel::generateRandomEmail,
-                    onOpenProxySettings = viewModel::openProxyDialog,
-                    onCheckLiveSingle = viewModel::checkLiveStatusForSingleAccount,
-                    onCheckLiveAll = viewModel::checkLiveStatusForSavedAccounts,
-                    onDeleteAccount = { acc: com.example.data.AccountEntity -> viewModel.deleteAccount(acc.id) },
-                    onClearAllAccounts = viewModel::clearAllAccounts,
-                    onClearInbox = viewModel::clearInbox,
-                    onReloadInbox = viewModel::manualRefreshOtps,
-                    onDismissMessage = viewModel::dismissMessage
-                )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Alert Banners (Error / Success)
+                    if (uiState.errorMessage != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF450A0A))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "❌ " + (uiState.errorMessage ?: ""),
+                                    color = Color(0xFFFCA5A5),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = viewModel::dismissMessage,
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFFFCA5A5), modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    } else if (uiState.successMessage != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF052E16))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "✅ " + (uiState.successMessage ?: ""),
+                                    color = Color(0xFF86EFAC),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = viewModel::dismissMessage,
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFF86EFAC), modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    // Active Tab Content
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        when (selectedTabIndex) {
+                            0 -> GetNumberTabContent(
+                                uiState = uiState,
+                                onRangeClicked = viewModel::onRangeClicked,
+                                onCustomRangeChange = viewModel::onCustomRangeChanged,
+                                onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
+                                onRefreshRanges = viewModel::refreshFacebookRanges,
+                                onCopyDeviceId = { viewModel.copyToClipboard(context, it, "DEVICE ID") },
+                                onCheckActivation = viewModel::checkDeviceActivationManually,
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE NUMBER") },
+                                onGoToCreate = { selectedTabIndex = 1 },
+                                onOpenApiKeyDialog = viewModel::openApiKeyDialog
+                            )
+                            1 -> CreateAccountTabContent(
+                                uiState = uiState,
+                                onPhoneChange = viewModel::onPhoneChanged,
+                                onPasswordChange = viewModel::onPasswordChanged,
+                                onCountrySelected = viewModel::onCountrySelected,
+                                onCreateAccount = viewModel::createAccount,
+                                onFindAccount = viewModel::findAccount,
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                onGoToGetNumber = { selectedTabIndex = 0 },
+                                onOpenProxySettings = viewModel::openProxyDialog,
+                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                            )
+                            2 -> OfficialCreateTabContent(
+                                uiState = uiState,
+                                onPhoneChange = viewModel::onPhoneChanged,
+                                onCountrySelected = viewModel::onCountrySelected,
+                                onCreateAccount = { viewModel.createAccountOfficial(context) },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                onOpenProxySettings = viewModel::openProxyDialog,
+                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                            )
+                            3 -> EmailCreateTabContent(
+                                uiState = uiState,
+                                onEmailChange = viewModel::onEmailChanged,
+                                onPasswordChange = viewModel::onPasswordChanged,
+                                onCountrySelected = viewModel::onCountrySelected,
+                                onGenerateRandomEmail = viewModel::generateRandomEmail,
+                                onCreateAccountWithEmail = { viewModel.createAccountWithEmail(context) },
+                                onCopyEmail = { viewModel.copyToClipboard(context, it, "EMAIL") },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                onOpenProxySettings = viewModel::openProxyDialog,
+                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                            )
+                            4 -> InboxTabContent(
+                                activeNumbers = uiState.activeNumbers,
+                                onCopyOtp = { viewModel.copyToClipboard(context, it, "OTP") },
+                                onCopyPhone = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onClearInbox = viewModel::clearInbox,
+                                onReloadInbox = viewModel::manualRefreshOtps
+                            )
+                            5 -> AccountHistoryTabContent(
+                                accounts = accountsHistory,
+                                onClearAll = viewModel::clearAllAccounts,
+                                onDeleteOne = { id -> viewModel.deleteAccount(id) },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                liveStatuses = uiState.liveStatuses,
+                                isCheckingLive = uiState.isCheckingLive,
+                                onCheckLive = viewModel::checkLiveStatusForSavedAccounts
+                            )
+                        }
+                    }
+                }
             }
         }
 
