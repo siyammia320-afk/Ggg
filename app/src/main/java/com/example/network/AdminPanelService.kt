@@ -250,6 +250,40 @@ object AdminPanelService {
     suspend fun updateWithdrawalStatus(id: String, newStatus: String): Boolean = withContext(Dispatchers.IO) {
         val url = "$FIREBASE_DB_URL/withdrawals/$id/status.json"
         try {
+            // If status is rejected, refund amount back to user's balance
+            if (newStatus == "rejected" || newStatus == "reject") {
+                val detailsUrl = "$FIREBASE_DB_URL/withdrawals/$id.json"
+                val detailsReq = Request.Builder().url(detailsUrl).get().build()
+                client.newCall(detailsReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val body = resp.body?.string()?.trim() ?: ""
+                        if (body.isNotEmpty() && body != "null") {
+                            val item = JSONObject(body)
+                            val userEmail = item.optString("email", "").trim()
+                            val amount = item.optDouble("amount", 0.0)
+                            if (userEmail.isNotEmpty() && amount > 0) {
+                                val sanitized = userEmail.replace(".", "_")
+                                val balUrl = "$FIREBASE_DB_URL/users/$sanitized/balance.json"
+                                val balReq = Request.Builder().url(balUrl).get().build()
+                                var currentBal = 0.0
+                                client.newCall(balReq).execute().use { balResp ->
+                                    if (balResp.isSuccessful) {
+                                        val bStr = balResp.body?.string()?.trim() ?: "0"
+                                        currentBal = bStr.toDoubleOrNull() ?: 0.0
+                                    }
+                                }
+                                val refundedBal = currentBal + amount
+                                val updateBalReq = Request.Builder()
+                                    .url(balUrl)
+                                    .put(refundedBal.toString().toRequestBody(jsonMediaType))
+                                    .build()
+                                client.newCall(updateBalReq).execute().close()
+                            }
+                        }
+                    }
+                }
+            }
+
             val request = Request.Builder()
                 .url(url)
                 .put("\"$newStatus\"".toRequestBody(jsonMediaType))

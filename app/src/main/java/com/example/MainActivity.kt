@@ -250,13 +250,6 @@ fun MainAppScreen(viewModel: com.example.ui.MainViewModel = androidx.lifecycle.v
                             )
                         }
                     }
-                    IconButton(onClick = { viewModel.openAdminPanel() }) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = "Admin Panel",
-                            tint = Color(0xFFF59E0B)
-                        )
-                    }
                     IconButton(onClick = { viewModel.logOutUser() }) {
                         Icon(
                             imageVector = Icons.Default.PowerSettingsNew,
@@ -506,20 +499,6 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            IconButton(
-                                onClick = viewModel::openAdminPanel,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .testTag("admin_panel_btn")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Shield,
-                                    contentDescription = "Admin Panel",
-                                    tint = Color(0xFFF59E0B),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
                             IconButton(
                                 onClick = viewModel::openProxyDialog,
                                 modifier = Modifier
