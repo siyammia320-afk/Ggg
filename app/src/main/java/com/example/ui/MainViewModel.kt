@@ -222,6 +222,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Check for updates on startup
         checkForUpdates(manual = false)
+
+        appendTerminalLog("[SYSTEM] 🟢 FB Tool Ready. Terminal Live Stream Active.")
     }
 
     private fun startPeriodicAppStatusCheck() {
@@ -308,6 +310,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val match = otps.find { isPhoneNumberMatch(it.number, active.phone) }
             if (match != null && match.otp != "N/A") {
                 if (!active.isAutoCopied || active.otp != match.otp) {
+                    appendTerminalLog("[OTP INBOX] 📩 OTP Code: ${match.otp} received for +${active.phone}")
                     // Auto copy OTP to clipboard and show system notification
                     autoCopyOtpToClipboard(match.otp, active.phone)
                     // Award OTP Price to user
@@ -395,6 +398,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
+            appendTerminalLog("[CUSTOM RANGE] ⏳ Requesting phone number for custom range $rangeInput...")
             _uiState.value = _uiState.value.copy(
                 isFetchingNumber = true,
                 selectedRangeCode = rangeInput,
@@ -406,11 +410,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val number = VoltxApiService.fetchPhoneNumber(rangeInput)
 
             if (number.isNullOrEmpty()) {
+                appendTerminalLog("[CUSTOM RANGE] ❌ No number available for custom range $rangeInput")
                 _uiState.value = _uiState.value.copy(
                     isFetchingNumber = false,
                     errorMessage = "প্যানেল থেকে এই রেঞ্জের ($rangeInput) কোনো নাম্বার পাওয়া যায়নি! অন্য রেঞ্জ দিয়ে চেষ্টা করুন।"
                 )
             } else {
+                appendTerminalLog("[CUSTOM RANGE] 📱 Received Number: +$number (Custom Range: $rangeInput)")
                 val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
                 val newActive = VoltxActiveNumber(
                     phone = number,
@@ -445,6 +451,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
+            appendTerminalLog("[RANGE] ⏳ Requesting phone number for range $rangeCode...")
             _uiState.value = _uiState.value.copy(
                 isFetchingNumber = true,
                 selectedRangeCode = rangeCode,
@@ -454,11 +461,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val number = VoltxApiService.fetchPhoneNumber(rangeCode)
             if (number.isNullOrEmpty()) {
+                appendTerminalLog("[RANGE] ❌ No number available for range $rangeCode")
                 _uiState.value = _uiState.value.copy(
                     isFetchingNumber = false,
                     errorMessage = "No number available for range $rangeCode. Please try another range!"
                 )
             } else {
+                appendTerminalLog("[RANGE] 📱 Received Number: +$number (Range: $rangeCode)")
                 val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
                 val newActive = VoltxActiveNumber(
                     phone = number,
@@ -604,13 +613,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             proxyStatus = if (useProxy) "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})..." else "CONNECTING PROXY..."
         )
 
+        appendTerminalLog("[MANUAL] 🚀 Starting account creation for $phone...")
+
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 // Step 1: Connect proxy
                 if (useProxy) {
+                    appendTerminalLog("[PROXY] 🌐 Connecting proxy $proxyServerToUse:$proxyPortToUse...")
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})...")
                     delay(500) // Connect proxy
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
+                    appendTerminalLog("[PROXY] 🟢 Proxy Connected ($proxyServerToUse:$proxyPortToUse)")
                 } else {
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTING PROXY...")
                     delay(500)
@@ -620,6 +633,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Step 2: Wait 2 seconds after proxy connection before sending account create request
                 delay(2000)
 
+                appendTerminalLog("[MANUAL] ⚙️ Sending registration request for $phone...")
                 val result = FbAccountService.createAccount(
                     phoneInput = phone,
                     passwordInput = password,
@@ -633,6 +647,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
 
                 if (result.success) {
+                    appendTerminalLog("[SUCCESS] ✅ Account Created! UID: ${result.uid} | Pass: ${result.password} | Name: ${result.name}")
                     val entity = AccountEntity(
                         phone = result.phone,
                         uid = result.uid,
@@ -645,6 +660,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                     // Auto-save created account to account.csv file in /sdcard/ACCOUNT FB/
                     appendRecordToCsv(result.uid, result.password, result.cookies)
+                    appendTerminalLog("[MANUAL] 💾 Auto-saved to account.csv & Database")
 
                     // Update active number with UID
                     val updatedActives = _uiState.value.activeNumbers.map {
@@ -658,6 +674,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         successMessage = "Account Created! UID: ${result.uid}. Auto-saved to account.csv"
                     )
                 } else {
+                    appendTerminalLog("[FAILED] ❌ Creation Failed for $phone: ${result.error}")
                     _uiState.value = _uiState.value.copy(
                         isCreating = false,
                         errorMessage = "Account Creation Failed: ${result.error}"
@@ -692,11 +709,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             proxyStatus = if (useProxy) "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})..." else "CONNECTING PROXY..."
         )
 
+        appendTerminalLog("[NM OFFICIAL] 🚀 Starting NM OFFICIAL creation for $phone (Password: arafat@@##)...")
+
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 if (useProxy) {
+                    appendTerminalLog("[PROXY] 🌐 Connecting proxy $proxyServerToUse:$proxyPortToUse...")
                     delay(500)
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
+                    appendTerminalLog("[PROXY] 🟢 Proxy Connected ($proxyServerToUse:$proxyPortToUse)")
                 } else {
                     delay(500)
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
@@ -704,6 +725,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 delay(1000)
 
+                appendTerminalLog("[NM OFFICIAL] ⚙️ Sending official registration for $phone...")
                 val result = FbAccountService.createAccountOfficial(
                     phoneInput = phone,
                     country = currentState.selectedCountry,
@@ -716,6 +738,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
 
                 if (result.success) {
+                    appendTerminalLog("[SUCCESS] ✅ NM Official Account Created! UID: ${result.uid} | Name: ${result.name} | Pass: ${result.password}")
                     val entity = AccountEntity(
                         phone = result.phone,
                         uid = result.uid,
@@ -728,6 +751,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                     // Auto-save created account to account.csv file in /sdcard/ACCOUNT FB/
                     appendRecordToCsv(result.uid, result.password, result.cookies)
+                    appendTerminalLog("[NM OFFICIAL] 💾 Auto-saved to account.csv & Database")
 
                     // Update active number with UID
                     val updatedActives = _uiState.value.activeNumbers.map {
@@ -741,6 +765,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         successMessage = "Account Created! UID: ${result.uid}. Auto-saved to account.csv"
                     )
                 } else {
+                    appendTerminalLog("[FAILED] ❌ NM Official Creation Failed: ${result.error}")
                     _uiState.value = _uiState.value.copy(
                         isCreating = false,
                         errorMessage = "Account Creation Failed: ${result.error}"
@@ -764,12 +789,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(showTerminalAutoOtp = false)
     }
 
-    private fun appendTerminalLog(log: String) {
+    fun appendTerminalLog(log: String) {
         val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
         val formatted = "[$time] $log"
-        _uiState.value = _uiState.value.copy(
-            terminalLogs = _uiState.value.terminalLogs + formatted
-        )
+        viewModelScope.launch(Dispatchers.Main) {
+            val currentList = _uiState.value.terminalLogs
+            val trimmedList = if (currentList.size > 500) currentList.takeLast(400) else currentList
+            _uiState.value = _uiState.value.copy(
+                terminalLogs = trimmedList + formatted
+            )
+        }
     }
 
     fun stopTerminalAutoOtp() {
@@ -1079,11 +1108,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             proxyStatus = if (useProxy) "CONNECTING PROXY (${currentState.proxyServer}:${currentState.proxyPort})..." else "CONNECTING PROXY..."
         )
 
+        appendTerminalLog("[EMAIL CREATE] 🚀 Starting Email account creation with $email (Password: $password)...")
+
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 if (useProxy) {
+                    appendTerminalLog("[PROXY] 🌐 Connecting proxy $proxyServerToUse:$proxyPortToUse...")
                     delay(500)
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
+                    appendTerminalLog("[PROXY] 🟢 Proxy Connected ($proxyServerToUse:$proxyPortToUse)")
                 } else {
                     delay(500)
                     _uiState.value = _uiState.value.copy(proxyStatus = "CONNECTED (PROXY ACTIVE)")
@@ -1091,6 +1124,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 delay(1000)
 
+                appendTerminalLog("[EMAIL CREATE] ⚙️ Sending email registration for $email...")
                 val result = FbAccountService.createAccount(
                     phoneInput = email,
                     passwordInput = password,
@@ -1104,6 +1138,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
 
                 if (result.success) {
+                    appendTerminalLog("[SUCCESS] ✅ Email Account Created! UID: ${result.uid} | Pass: ${result.password} | Name: ${result.name}")
                     val entity = AccountEntity(
                         phone = email,
                         uid = result.uid,
@@ -1115,6 +1150,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val savedEntity = entity.copy(id = newId)
 
                     appendRecordToCsv(result.uid, result.password, result.cookies)
+                    appendTerminalLog("[EMAIL CREATE] 💾 Auto-saved to account.csv & Database")
 
                     _uiState.value = _uiState.value.copy(
                         isCreating = false,
@@ -1122,6 +1158,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         successMessage = "Email Account Created! UID: ${result.uid}. Email auto-copied!"
                     )
                 } else {
+                    appendTerminalLog("[FAILED] ❌ Email Creation Failed for $email: ${result.error}")
                     _uiState.value = _uiState.value.copy(
                         isCreating = false,
                         errorMessage = "Account Creation Failed: ${result.error}"
@@ -1159,8 +1196,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             findAccountResult = null
         )
 
+        appendTerminalLog("[FIND ACCOUNT] 🔍 Checking if account exists for $phone...")
+
         viewModelScope.launch {
             val exists = com.example.network.FbIdentifyService.checkAccountExists(phone)
+            if (exists) {
+                appendTerminalLog("[FIND ACCOUNT] ⚠️ Account ALREADY EXISTS on +$phone!")
+            } else {
+                appendTerminalLog("[FIND ACCOUNT] 🟢 No Account on +$phone (Fresh Number).")
+            }
             val resultText = if (exists) "Yess ✅" else "No 🚫💥"
             _uiState.value = _uiState.value.copy(
                 isFindingAccount = false,
@@ -1560,10 +1604,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         lastLiveCheckTimeMs = now
 
         viewModelScope.launch {
+            appendTerminalLog("[LIVE CHECK] ⚡ Checking live status for UID: $uid...")
             _uiState.value = _uiState.value.copy(isCheckingLive = true)
             val results = com.example.network.LiveCheckService.checkLiveUids(listOf(uid))
             val updatedMap = _uiState.value.liveStatuses.toMutableMap()
             updatedMap.putAll(results)
+            val status = results[uid] ?: "UNKNOWN"
+            appendTerminalLog("[LIVE CHECK] ⚡ UID $uid is $status")
             _uiState.value = _uiState.value.copy(
                 isCheckingLive = false,
                 liveStatuses = updatedMap,

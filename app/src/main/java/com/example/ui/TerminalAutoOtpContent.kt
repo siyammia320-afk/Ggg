@@ -144,6 +144,41 @@ fun TerminalAutoOtpScreen(
                         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                             return false
                         }
+
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            val safeProxy = proxyStatus.replace("'", "\\'").replace("\n", " ")
+                            val safeNotice = terminalDisabledNotice.replace("'", "\\'").replace("\n", " ")
+                            val rangesJson = JSONArray(availableRanges).toString()
+                            val logsJson = JSONArray(logs).toString()
+
+                            val initScript = """
+                                try {
+                                    if (window.updateStatsAndState) {
+                                        window.updateStatsAndState(
+                                            $isRunning,
+                                            $isTerminalEnabledByAdmin,
+                                            $successCount,
+                                            $noAccountCount,
+                                            $existCount,
+                                            $failedCount,
+                                            '$safeProxy',
+                                            '$safeNotice'
+                                        );
+                                    }
+                                    if (window.updateRanges) {
+                                        window.updateRanges($rangesJson);
+                                    }
+                                    if (window.appendTerminalLogs) {
+                                        window.appendTerminalLogs($logsJson);
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                }
+                            """.trimIndent()
+                            view?.evaluateJavascript(initScript, null)
+                            lastLogIndex = logs.size
+                        }
                     }
 
                     class AndroidTerminalBridge {
@@ -862,21 +897,29 @@ private fun getTerminalHtml(defaultPassword: String): String {
 
             // Fast incremental log appending (Zero lag)
             window.appendTerminalLogs = function(newLines) {
+                if (!newLines || !Array.isArray(newLines) || newLines.length === 0) return;
                 const container = document.getElementById('consoleLogs');
+                if (!container) return;
+
+                // Clear placeholder text if this is the first batch of logs
+                if (allLogsText.length === 0 && container.children.length === 1 && container.innerText.includes('Click START to begin')) {
+                    container.innerHTML = '';
+                }
+
                 newLines.forEach((line) => {
                     allLogsText.push(line);
                     const div = document.createElement('div');
                     div.className = 'log-line';
                     
-                    if (line.includes('[SUCCESS]') || line.includes('OTP Code:') || line.includes('DONE')) {
+                    if (line.includes('[SUCCESS]') || line.includes('OTP Code:') || line.includes('DONE') || line.includes('✅') || line.includes('🎉')) {
                         div.className = 'log-line log-success';
-                    } else if (line.includes('[FAILED]') || line.includes('[ERROR]') || line.includes('❌')) {
+                    } else if (line.includes('[FAILED]') || line.includes('[ERROR]') || line.includes('❌') || line.includes('🛑')) {
                         div.className = 'log-line log-error';
                     } else if (line.includes('[WARNING]') || line.includes('[EXISTS]') || line.includes('⚠️')) {
                         div.className = 'log-line log-warning';
-                    } else if (line.includes('Got Number:') || line.includes('📱')) {
+                    } else if (line.includes('Got Number:') || line.includes('📱') || line.includes('[RANGE]') || line.includes('[CUSTOM RANGE]')) {
                         div.className = 'log-line log-info';
-                    } else if (line.includes('[SYSTEM]') || line.includes('[CONFIG]') || line.includes('🚀')) {
+                    } else if (line.includes('[SYSTEM]') || line.includes('[CONFIG]') || line.includes('🚀') || line.includes('[NM OFFICIAL]') || line.includes('[EMAIL CREATE]') || line.includes('[LIVE CHECK]')) {
                         div.className = 'log-line log-system';
                     }
 

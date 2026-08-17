@@ -2,6 +2,7 @@ package com.example
 
 import com.example.ui.AuthScreen
 import com.example.ui.TerminalAutoOtpScreen
+import com.example.ui.MainDashboardHtmlContent
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -496,221 +497,41 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                 }
             }
         ) { innerPadding ->
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(Color.White)
+                    .background(Color(0xFF0B0F19))
             ) {
-                // Non-blocking compact message notification banner
-                if (uiState.errorMessage != null || uiState.successMessage != null) {
-                    val isErr = uiState.errorMessage != null
-                    val message = uiState.errorMessage ?: uiState.successMessage ?: ""
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(if (isErr) Color(0xFFFEE2E2) else Color(0xFFE2E8F0))
-                            .clickable { viewModel.dismissMessage() }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = message,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isErr) Color(0xFF991B1B) else Color(0xFF1E293B),
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = if (isErr) Color(0xFF991B1B) else Color(0xFF1E293B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                    }
-                }
-
-                ScrollableTabRow(
+                MainDashboardHtmlContent(
+                    uiState = uiState,
+                    accountsHistory = accountsHistory,
                     selectedTabIndex = selectedTabIndex,
-                    containerColor = Color(0xFFF1F5F9),
-                    contentColor = Color(0xFF1E293B),
-                    edgePadding = 0.dp,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = Color(0xFF2563EB),
-                            height = 3.dp
-                        )
-                    }
-                ) {
-                    Tab(
-                        selected = selectedTabIndex == 0,
-                        onClick = { selectedTabIndex = 0 },
-                        modifier = Modifier.testTag("tab_get_number")
-                    ) {
-                        Text(
-                            text = "RANGE",
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = if (selectedTabIndex == 0) Color(0xFF1E293B) else Color(0xFF64748B),
-                            maxLines = 1
-                        )
-                    }
-                    Tab(
-                        selected = selectedTabIndex == 1,
-                        onClick = { selectedTabIndex = 1 },
-                        modifier = Modifier.testTag("tab_create")
-                    ) {
-                        Text(
-                            text = "NM LIMIT",
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = if (selectedTabIndex == 1) Color(0xFF1E293B) else Color(0xFF64748B),
-                            maxLines = 1
-                        )
-                    }
-                    Tab(
-                        selected = selectedTabIndex == 2,
-                        onClick = { selectedTabIndex = 2 },
-                        modifier = Modifier.testTag("tab_official")
-                    ) {
-                        Text(
-                            text = "NM OFFICAL",
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = if (selectedTabIndex == 2) Color(0xFF1E293B) else Color(0xFF64748B),
-                            maxLines = 1
-                        )
-                    }
-                    Tab(
-                        selected = selectedTabIndex == 3,
-                        onClick = { selectedTabIndex = 3 },
-                        modifier = Modifier.testTag("tab_email_create")
-                    ) {
-                        Text(
-                            text = "EML LIMIT",
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = if (selectedTabIndex == 3) Color(0xFF1E293B) else Color(0xFF64748B),
-                            maxLines = 1
-                        )
-                    }
-                    Tab(
-                        selected = selectedTabIndex == 4,
-                        onClick = { selectedTabIndex = 4 },
-                        modifier = Modifier.testTag("tab_inbox")
-                    ) {
-                        Text(
-                            text = "OTP",
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = if (selectedTabIndex == 4) Color(0xFF1E293B) else Color(0xFF64748B),
-                            maxLines = 1
-                        )
-                    }
-                    Tab(
-                        selected = selectedTabIndex == 5,
-                        onClick = { selectedTabIndex = 5 },
-                        modifier = Modifier.testTag("tab_history")
-                    ) {
-                        Text(
-                            text = "SAV",
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = if (selectedTabIndex == 5) Color(0xFF1E293B) else Color(0xFF64748B),
-                            maxLines = 1
-                        )
-                    }
-                }
-
-                when (selectedTabIndex) {
-                    0 -> GetNumberTabContent(
-                        uiState = uiState,
-                        onRangeClicked = viewModel::onRangeClicked,
-                        onCustomRangeChange = viewModel::onCustomRangeChanged,
-                        onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
-                        onRefreshRanges = viewModel::refreshFacebookRanges,
-                        onCopyDeviceId = { devId -> viewModel.copyToClipboard(context, devId, "DEVICE ID") },
-                        onCheckActivation = viewModel::checkDeviceActivationManually,
-                        onCopyNumber = { num -> viewModel.copyToClipboard(context, num, "PHONE NUMBER") },
-                        onGoToCreate = { selectedTabIndex = 1 },
-                        onOpenApiKeyDialog = viewModel::openApiKeyDialog
-                    )
-                    1 -> CreateAccountTabContent(
-                        uiState = uiState,
-                        onPhoneChange = viewModel::onPhoneChanged,
-                        onPasswordChange = viewModel::onPasswordChanged,
-                        onCountrySelected = viewModel::onCountrySelected,
-                        onCreateAccount = viewModel::createAccount,
-                        onFindAccount = viewModel::findAccount,
-                        onCopyUid = { uid -> viewModel.copyToClipboard(context, uid, "UID") },
-                        onCopyNumber = { num -> viewModel.copyToClipboard(context, num, "NUMBER") },
-                        onCopyCookies = { cookie -> viewModel.copyToClipboard(context, cookie, "COOKIES") },
-                        onGoToGetNumber = { selectedTabIndex = 0 },
-                        onOpenProxySettings = viewModel::openProxyDialog,
-                        onCheckLive = viewModel::checkLiveStatusForSingleAccount
-                    )
-                    2 -> OfficialCreateTabContent(
-                        uiState = uiState,
-                        onPhoneChange = viewModel::onPhoneChanged,
-                        onCountrySelected = viewModel::onCountrySelected,
-                        onCreateAccount = { viewModel.createAccountOfficial(context) },
-                        onCopyUid = { uid -> viewModel.copyToClipboard(context, uid, "UID") },
-                        onCopyNumber = { num -> viewModel.copyToClipboard(context, num, "NUMBER") },
-                        onCopyCookies = { cookie -> viewModel.copyToClipboard(context, cookie, "COOKIES") },
-                        onOpenProxySettings = viewModel::openProxyDialog,
-                        onCheckLive = viewModel::checkLiveStatusForSingleAccount
-                    )
-                    3 -> EmailCreateTabContent(
-                        uiState = uiState,
-                        onEmailChange = viewModel::onEmailChanged,
-                        onPasswordChange = viewModel::onPasswordChanged,
-                        onCountrySelected = viewModel::onCountrySelected,
-                        onGenerateRandomEmail = viewModel::generateRandomEmail,
-                        onCreateAccountWithEmail = { viewModel.createAccountWithEmail(context) },
-                        onCopyEmail = { email -> viewModel.copyToClipboard(context, email, "EMAIL") },
-                        onCopyUid = { uid -> viewModel.copyToClipboard(context, uid, "UID") },
-                        onCopyCookies = { cookie -> viewModel.copyToClipboard(context, cookie, "COOKIES") },
-                        onOpenProxySettings = viewModel::openProxyDialog,
-                        onCheckLive = viewModel::checkLiveStatusForSingleAccount
-                    )
-                    4 -> InboxTabContent(
-                        activeNumbers = uiState.activeNumbers,
-                        onCopyOtp = { otp -> viewModel.copyToClipboard(context, otp, "OTP CODE") },
-                        onCopyPhone = { phone -> viewModel.copyToClipboard(context, phone, "PHONE NUMBER") },
-                        onCopyUid = { uid -> viewModel.copyToClipboard(context, uid, "UID") },
-                        onClearInbox = viewModel::clearInbox,
-                        onReloadInbox = viewModel::manualRefreshOtps
-                    )
-                    5 -> AccountHistoryTabContent(
-                        accounts = accountsHistory,
-                        onClearAll = viewModel::clearAllAccounts,
-                        onDeleteOne = viewModel::deleteAccount,
-                        onCopyUid = { uid -> viewModel.copyToClipboard(context, uid, "UID") },
-                        onCopyNumber = { num -> viewModel.copyToClipboard(context, num, "NUMBER") },
-                        onCopyCookies = { cookie -> viewModel.copyToClipboard(context, cookie, "COOKIES") },
-                        liveStatuses = uiState.liveStatuses,
-                        isCheckingLive = uiState.isCheckingLive,
-                        onCheckLive = viewModel::checkLiveStatusForSavedAccounts
-                    )
-                }
+                    onTabSelected = { idx: Int -> selectedTabIndex = idx },
+                    onRangeClicked = viewModel::onRangeClicked,
+                    onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
+                    onCustomRangeChange = viewModel::onCustomRangeChanged,
+                    onRefreshRanges = viewModel::refreshFacebookRanges,
+                    onCopyText = { text: String, label: String -> viewModel.copyToClipboard(context, text, label) },
+                    onCheckActivation = viewModel::checkDeviceActivationManually,
+                    onPhoneChange = viewModel::onPhoneChanged,
+                    onPasswordChange = viewModel::onPasswordChanged,
+                    onEmailChange = viewModel::onEmailChanged,
+                    onCountrySelected = viewModel::onCountrySelected,
+                    onCreateAccount = viewModel::createAccount,
+                    onFindAccount = viewModel::findAccount,
+                    onCreateOfficialAccount = { viewModel.createAccountOfficial(context) },
+                    onCreateEmailAccount = { viewModel.createAccountWithEmail(context) },
+                    onGenerateRandomEmail = viewModel::generateRandomEmail,
+                    onOpenProxySettings = viewModel::openProxyDialog,
+                    onCheckLiveSingle = viewModel::checkLiveStatusForSingleAccount,
+                    onCheckLiveAll = viewModel::checkLiveStatusForSavedAccounts,
+                    onDeleteAccount = { acc: com.example.data.AccountEntity -> viewModel.deleteAccount(acc.id) },
+                    onClearAllAccounts = viewModel::clearAllAccounts,
+                    onClearInbox = viewModel::clearInbox,
+                    onReloadInbox = viewModel::manualRefreshOtps,
+                    onDismissMessage = viewModel::dismissMessage
+                )
             }
         }
 
