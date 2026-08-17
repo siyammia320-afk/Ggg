@@ -644,37 +644,79 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         }
                     }
 
-                    // Active Tab Content rendered via Ultra-Fast Zero-Lag Hardware Accelerated HTML Dashboard
+                    // Active Tab Content rendered via native Compose UI for 100% crisp visibility and functionality
                     Box(modifier = Modifier.fillMaxSize()) {
-                        MainDashboardHtmlContent(
-                            uiState = uiState,
-                            accountsHistory = accountsHistory,
-                            selectedTabIndex = selectedTabIndex,
-                            onTabSelected = { selectedTabIndex = it },
-                            onRangeClicked = viewModel::onRangeClicked,
-                            onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
-                            onCustomRangeChange = viewModel::onCustomRangeChanged,
-                            onRefreshRanges = viewModel::refreshFacebookRanges,
-                            onCopyText = { text, label -> viewModel.copyToClipboard(context, text, label) },
-                            onCheckActivation = viewModel::checkDeviceActivationManually,
-                            onPhoneChange = viewModel::onPhoneChanged,
-                            onPasswordChange = viewModel::onPasswordChanged,
-                            onEmailChange = viewModel::onEmailChanged,
-                            onCountrySelected = viewModel::onCountrySelected,
-                            onCreateAccount = viewModel::createAccount,
-                            onFindAccount = viewModel::findAccount,
-                            onCreateOfficialAccount = { viewModel.createAccountOfficial(context) },
-                            onCreateEmailAccount = { viewModel.createAccountWithEmail(context) },
-                            onGenerateRandomEmail = viewModel::generateRandomEmail,
-                            onOpenProxySettings = viewModel::openProxyDialog,
-                            onCheckLiveSingle = viewModel::checkLiveStatusForSingleAccount,
-                            onCheckLiveAll = viewModel::checkLiveStatusForSavedAccounts,
-                            onDeleteAccount = { viewModel.deleteAccount(it.id) },
-                            onClearAllAccounts = viewModel::clearAllAccounts,
-                            onClearInbox = viewModel::clearInbox,
-                            onReloadInbox = viewModel::manualRefreshOtps,
-                            onDismissMessage = viewModel::dismissMessage
-                        )
+                        when (selectedTabIndex) {
+                            0 -> GetNumberTabContent(
+                                uiState = uiState,
+                                onRangeClicked = viewModel::onRangeClicked,
+                                onCustomRangeChange = viewModel::onCustomRangeChanged,
+                                onFetchCustomRange = viewModel::fetchNumberFromCustomRange,
+                                onRefreshRanges = viewModel::refreshFacebookRanges,
+                                onCopyDeviceId = { viewModel.copyToClipboard(context, it, "DEVICE ID") },
+                                onCheckActivation = viewModel::checkDeviceActivationManually,
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE NUMBER") },
+                                onGoToCreate = { selectedTabIndex = 1 },
+                                onOpenApiKeyDialog = viewModel::openApiKeyDialog
+                            )
+                            1 -> CreateAccountTabContent(
+                                uiState = uiState,
+                                onPhoneChange = viewModel::onPhoneChanged,
+                                onPasswordChange = viewModel::onPasswordChanged,
+                                onCountrySelected = viewModel::onCountrySelected,
+                                onCreateAccount = viewModel::createAccount,
+                                onFindAccount = viewModel::findAccount,
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                onGoToGetNumber = { selectedTabIndex = 0 },
+                                onOpenProxySettings = viewModel::openProxyDialog,
+                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                            )
+                            2 -> OfficialCreateTabContent(
+                                uiState = uiState,
+                                onPhoneChange = viewModel::onPhoneChanged,
+                                onCountrySelected = viewModel::onCountrySelected,
+                                onCreateAccount = { viewModel.createAccountOfficial(context) },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                onOpenProxySettings = viewModel::openProxyDialog,
+                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                            )
+                            3 -> EmailCreateTabContent(
+                                uiState = uiState,
+                                onEmailChange = viewModel::onEmailChanged,
+                                onPasswordChange = viewModel::onPasswordChanged,
+                                onCountrySelected = viewModel::onCountrySelected,
+                                onGenerateRandomEmail = viewModel::generateRandomEmail,
+                                onCreateAccountWithEmail = { viewModel.createAccountWithEmail(context) },
+                                onCopyEmail = { viewModel.copyToClipboard(context, it, "EMAIL") },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                onOpenProxySettings = viewModel::openProxyDialog,
+                                onCheckLive = viewModel::checkLiveStatusForSingleAccount
+                            )
+                            4 -> InboxTabContent(
+                                activeNumbers = uiState.activeNumbers,
+                                onCopyOtp = { viewModel.copyToClipboard(context, it, "OTP") },
+                                onCopyPhone = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onClearInbox = viewModel::clearInbox,
+                                onReloadInbox = viewModel::manualRefreshOtps
+                            )
+                            5 -> AccountHistoryTabContent(
+                                accounts = accountsHistory,
+                                onClearAll = viewModel::clearAllAccounts,
+                                onDeleteOne = { id -> viewModel.deleteAccount(id) },
+                                onCopyUid = { viewModel.copyToClipboard(context, it, "UID") },
+                                onCopyNumber = { viewModel.copyToClipboard(context, it, "PHONE") },
+                                onCopyCookies = { viewModel.copyToClipboard(context, it, "COOKIES") },
+                                liveStatuses = uiState.liveStatuses,
+                                isCheckingLive = uiState.isCheckingLive,
+                                onCheckLive = viewModel::checkLiveStatusForSavedAccounts
+                            )
+                        }
                     }
                 }
             }
