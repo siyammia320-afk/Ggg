@@ -21,9 +21,7 @@ object VoltxApiService {
 
     private const val API_BASE_URL = "https://api.2oo9.cloud/MXS47FLFX0U/tnevs/@public/api"
     
-    var currentApiKey: String
-        get() = "MFSCNKJSFBI"
-        set(value) {}
+    var currentApiKey: String = "MFSCNKJSFBI"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -79,6 +77,9 @@ object VoltxApiService {
     suspend fun fetchPhoneNumber(rangeCode: String): String? = withContext(Dispatchers.IO) {
         val rid = rangeCode.replace("XXX", "", ignoreCase = true)
             .replace("X", "", ignoreCase = true)
+            .replace("*", "")
+            .replace("+", "")
+            .replace(" ", "")
             .trim()
 
         if (rid.isEmpty()) return@withContext null
@@ -97,13 +98,19 @@ object VoltxApiService {
 
         try {
             val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val bodyStr = response.body?.string() ?: ""
+            val bodyStr = response.body?.string() ?: ""
+            if (response.isSuccessful && bodyStr.isNotBlank()) {
                 val jsonObj = JSONObject(bodyStr)
-                if (jsonObj.optJSONObject("meta")?.optInt("code") == 200) {
+                val metaObj = jsonObj.optJSONObject("meta")
+                val code = metaObj?.optInt("code") ?: jsonObj.optInt("code", 0)
+                if (code == 200 || code == 0) {
                     val dataObj = jsonObj.optJSONObject("data")
                     val fullNumber = dataObj?.optString("full_number")
                         ?: dataObj?.optString("no_plus_number")
+                        ?: dataObj?.optString("number")
+                        ?: dataObj?.optString("phone")
+                        ?: jsonObj.optString("full_number")
+                        ?: jsonObj.optString("number")
                     if (!fullNumber.isNullOrBlank()) {
                         return@withContext fullNumber.replace("+", "").trim()
                     }

@@ -476,8 +476,8 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Name Terminal Auto OTP",
-                            fontSize = 11.sp,
+                            text = "Terminal",
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
@@ -815,13 +815,18 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
         if (uiState.showTerminalAutoOtp) {
             TerminalAutoOtpScreen(
                 onClose = viewModel::closeTerminalAutoOtp,
-                onStart = { range, count, threads ->
-                    viewModel.startTerminalAutoOtp(range, count, threads, context)
+                onStart = { range, count, threads, method, isFindAccountEnabled, password ->
+                    viewModel.startTerminalAutoOtp(range, count, threads, method, isFindAccountEnabled, password, context)
                 },
                 onStop = viewModel::stopTerminalAutoOtp,
                 isRunning = uiState.isTerminalRunning,
                 logs = uiState.terminalLogs,
                 proxyStatus = uiState.proxyStatus,
+                initialPassword = uiState.passwordInput,
+                successCount = uiState.terminalSuccessCount,
+                noAccountCount = uiState.terminalNoAccountCount,
+                existCount = uiState.terminalExistCount,
+                failedCount = uiState.terminalFailedCount,
                 availableRanges = uiState.facebookRanges
             )
         }

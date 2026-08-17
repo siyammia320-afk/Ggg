@@ -13,6 +13,7 @@ import com.example.data.AccountEntity
 import com.example.data.AppDatabase
 import com.example.data.PreferencesRepository
 import com.example.network.FbAccountService
+import com.example.network.FbIdentifyService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -121,7 +122,11 @@ data class AccountCreatorUiState(
     val updateDownloadError: String? = null,
     val showTerminalAutoOtp: Boolean = false,
     val isTerminalRunning: Boolean = false,
-    val terminalLogs: List<String> = emptyList()
+    val terminalLogs: List<String> = emptyList(),
+    val terminalSuccessCount: Int = 0,
+    val terminalNoAccountCount: Int = 0,
+    val terminalExistCount: Int = 0,
+    val terminalFailedCount: Int = 0
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -394,29 +399,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 successMessage = "Fetching number for custom range $rangeInput..."
             )
 
-            // 1. Try server API first
-            var number = VoltxApiService.fetchPhoneNumber(rangeInput)
-
-            // 2. If API has no number or offline, generate matching random number from range format
-            if (number.isNullOrEmpty()) {
-                val sb = StringBuilder()
-                for (char in rangeInput) {
-                    if (char == 'X' || char == 'x' || char == '*') {
-                        sb.append((0..9).random())
-                    } else {
-                        sb.append(char)
-                    }
-                }
-                val generated = sb.toString().replace("+", "").trim()
-                if (generated.isNotEmpty()) {
-                    number = generated
-                }
-            }
+            // 1. Fetch real number from panel API
+            val number = VoltxApiService.fetchPhoneNumber(rangeInput)
 
             if (number.isNullOrEmpty()) {
                 _uiState.value = _uiState.value.copy(
                     isFetchingNumber = false,
-                    errorMessage = "Could not generate number for range $rangeInput."
+                    errorMessage = "প্যানেল থেকে এই রেঞ্জের ($rangeInput) কোনো নাম্বার পাওয়া যায়নি! অন্য রেঞ্জ দিয়ে চেষ্টা করুন।"
                 )
             } else {
                 val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -777,7 +766,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun startTerminalAutoOtp(range: String, totalAccounts: Int, threadCount: Int, context: Context) {
+    fun startTerminalAutoOtp(
+        range: String,
+        totalAccounts: Int,
+        threadCount: Int,
+        method: com.example.ui.CreationMethod,
+        isFindAccountEnabled: Boolean,
+        customPassword: String = "arafat@@##",
+        context: Context
+    ) {
         if (range.isBlank() || totalAccounts <= 0) return
         val threads = threadCount.coerceIn(1, 20)
         val accountsToCreate = totalAccounts.coerceAtLeast(1)
@@ -785,7 +782,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         terminalJob?.cancel()
         _uiState.value = _uiState.value.copy(
             isTerminalRunning = true,
-            terminalLogs = emptyList()
+            terminalLogs = emptyList(),
+            terminalSuccessCount = 0,
+            terminalNoAccountCount = 0,
+            terminalExistCount = 0,
+            terminalFailedCount = 0
         )
 
         val currentState = _uiState.value
@@ -795,10 +796,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val proxyUserToUse = if (useProxy) currentState.proxyUsername else ""
         val proxyPassToUse = if (useProxy) currentState.proxyPassword else ""
         val country = currentState.selectedCountry
+        val targetPassword = if (customPassword.isNotBlank()) customPassword.trim() else "arafat@@##"
 
         terminalJob = viewModelScope.launch(Dispatchers.IO) {
-            appendTerminalLog("[SYSTEM] 🚀 Terminal Auto OTP Engine Started")
-            appendTerminalLog("[CONFIG] Range: $range | Total: $accountsToCreate | Threads: $threads | Method: NM OFFICIAL")
+            appendTerminalLog("[SYSTEM] 🚀 Terminal Engine Started")
+            appendTerminalLog("[CONFIG] Range: $range | Total: $accountsToCreate | Threads: $threads | Method: ${method.title} | Find Account: ${if (isFindAccountEnabled) "ON (Fresh Only)" else "OFF"}")
+            if (method == com.example.ui.CreationMethod.NM_LIMIT) {
+                appendTerminalLog("[CONFIG] Custom Password: $targetPassword")
+            } else {
+                appendTerminalLog("[CONFIG] Official Password: arafat@@## (Locked)")
+            }
             
             if (useProxy) {
                 appendTerminalLog("[PROXY] 🌐 Connecting proxy $proxyServerToUse:$proxyPortToUse...")
@@ -812,6 +819,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val completedCount = AtomicInteger(0)
             val successCount = AtomicInteger(0)
+            val noAccountCount = AtomicInteger(0)
+            val existCount = AtomicInteger(0)
+            val failedCount = AtomicInteger(0)
+
             val queue = Channel<Int>(Channel.UNLIMITED)
             for (i in 1..accountsToCreate) {
                 queue.send(i)
@@ -841,6 +852,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                             if (phoneNumber.isNullOrBlank()) {
                                 appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [FAILED] Could not get phone number. Skipping.")
+                                val curFailed = failedCount.incrementAndGet()
+                                withContext(Dispatchers.Main) {
+                                    _uiState.value = _uiState.value.copy(terminalFailedCount = curFailed)
+                                }
                                 completedCount.incrementAndGet()
                                 continue
                             }
@@ -861,19 +876,61 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             saveActiveNumbersToPrefs(updated)
                         }
 
-                        appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] ⚙️ Executing NM OFFICIAL GraphQL Registration...")
+                        // If Find Account is ON, check whether account exists on this number
+                        if (isFindAccountEnabled) {
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 🔍 Checking if account exists on +$finalNumber...")
+                            val hasAccount = try {
+                                FbIdentifyService.checkAccountExists(finalNumber)
+                            } catch (e: Exception) {
+                                false
+                            }
+
+                            if (hasAccount) {
+                                val curExist = existCount.incrementAndGet()
+                                withContext(Dispatchers.Main) {
+                                    _uiState.value = _uiState.value.copy(terminalExistCount = curExist)
+                                }
+                                appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] ⚠️ Account ALREADY EXISTS on +$finalNumber! Skipping creation.")
+                                completedCount.incrementAndGet()
+                                delay(600)
+                                continue
+                            } else {
+                                val curNoAcc = noAccountCount.incrementAndGet()
+                                withContext(Dispatchers.Main) {
+                                    _uiState.value = _uiState.value.copy(terminalNoAccountCount = curNoAcc)
+                                }
+                                appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 🟢 No Account Found on +$finalNumber (Fresh Number). Proceeding to create...")
+                            }
+                        }
+
+                        appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] ⚙️ Executing ${method.title} Registration...")
 
                         val result = try {
-                            FbAccountService.createAccountOfficial(
-                                phoneInput = finalNumber,
-                                country = country,
-                                proxyServer = proxyServerToUse,
-                                proxyPort = proxyPortToUse,
-                                proxyUsername = proxyUserToUse,
-                                proxyPassword = proxyPassToUse,
-                                customUserAgent = currentState.customUserAgent,
-                                isCustomUserAgentEnabled = currentState.isCustomUserAgentEnabled
-                            )
+                            if (method == com.example.ui.CreationMethod.NM_OFFICIAL) {
+                                FbAccountService.createAccountOfficial(
+                                    phoneInput = finalNumber,
+                                    country = country,
+                                    proxyServer = proxyServerToUse,
+                                    proxyPort = proxyPortToUse,
+                                    proxyUsername = proxyUserToUse,
+                                    proxyPassword = proxyPassToUse,
+                                    customUserAgent = currentState.customUserAgent,
+                                    isCustomUserAgentEnabled = currentState.isCustomUserAgentEnabled
+                                )
+                            } else {
+                                val pwd = targetPassword
+                                FbAccountService.createAccount(
+                                    phoneInput = finalNumber,
+                                    passwordInput = pwd,
+                                    country = country,
+                                    proxyServer = proxyServerToUse,
+                                    proxyPort = proxyPortToUse,
+                                    proxyUsername = proxyUserToUse,
+                                    proxyPassword = proxyPassToUse,
+                                    customUserAgent = currentState.customUserAgent,
+                                    isCustomUserAgentEnabled = currentState.isCustomUserAgentEnabled
+                                )
+                            }
                         } catch (e: Exception) {
                             com.example.network.AccountResult(
                                 success = false,
@@ -883,6 +940,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                         if (result.success && !result.uid.isNullOrBlank()) {
                             val curSuccess = successCount.incrementAndGet()
+                            withContext(Dispatchers.Main) {
+                                _uiState.value = _uiState.value.copy(terminalSuccessCount = curSuccess)
+                            }
                             appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [SUCCESS] ✅ UID: ${result.uid} | Name: ${result.name} | Pass: ${result.password}")
                             
                             val entity = AccountEntity(
@@ -908,6 +968,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                             appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 💾 Auto-saved to Database & account.csv (Total Success: $curSuccess/$accountsToCreate)")
                         } else {
+                            val curFailed = failedCount.incrementAndGet()
+                            withContext(Dispatchers.Main) {
+                                _uiState.value = _uiState.value.copy(terminalFailedCount = curFailed)
+                            }
                             val err = result.error ?: "Checkpoint / Blocked"
                             appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [FAILED] ❌ $err")
                         }
@@ -921,7 +985,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             workers.joinAll()
 
             val finalSuccess = successCount.get()
-            appendTerminalLog("[SYSTEM] 🎉 All tasks finished! Target: $accountsToCreate | Created: $finalSuccess")
+            val finalExist = existCount.get()
+            val finalNoAcc = noAccountCount.get()
+            val finalFailed = failedCount.get()
+            appendTerminalLog("[SYSTEM] 🎉 All tasks finished! Success: $finalSuccess | Exist: $finalExist | No Account: $finalNoAcc | Failed: $finalFailed")
             appendTerminalLog("[PROXY] 🔒 Disconnecting proxy automatically (AUTO OFF).")
             _uiState.value = _uiState.value.copy(
                 isTerminalRunning = false,
