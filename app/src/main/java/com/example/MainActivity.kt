@@ -815,19 +815,33 @@ fun FullFeatureAppContent(viewModel: MainViewModel = viewModel()) {
         if (uiState.showTerminalAutoOtp) {
             TerminalAutoOtpScreen(
                 onClose = viewModel::closeTerminalAutoOtp,
-                onStart = { range, count, threads, method, isFindAccountEnabled, password ->
-                    viewModel.startTerminalAutoOtp(range, count, threads, method, isFindAccountEnabled, password, context)
+                onStart = { range, manualList, useManual, count, threads, method, isFindAccountEnabled, password ->
+                    viewModel.startTerminalAutoOtp(
+                        range = range,
+                        manualNumbersList = manualList,
+                        useManualMode = useManual,
+                        totalAccounts = count,
+                        threadCount = threads,
+                        method = method,
+                        isFindAccountEnabled = isFindAccountEnabled,
+                        customPassword = password,
+                        context = context
+                    )
                 },
                 onStop = viewModel::stopTerminalAutoOtp,
                 isRunning = uiState.isTerminalRunning,
                 logs = uiState.terminalLogs,
                 proxyStatus = uiState.proxyStatus,
                 initialPassword = uiState.passwordInput,
+                isTerminalEnabledByAdmin = uiState.isTerminalEnabledByAdmin,
+                isManualNumbersEnabledByAdmin = uiState.isManualNumbersEnabledByAdmin,
+                terminalDisabledNotice = uiState.terminalDisabledNotice,
                 successCount = uiState.terminalSuccessCount,
                 noAccountCount = uiState.terminalNoAccountCount,
                 existCount = uiState.terminalExistCount,
                 failedCount = uiState.terminalFailedCount,
-                availableRanges = uiState.facebookRanges
+                availableRanges = uiState.facebookRanges,
+                onRefreshRanges = viewModel::refreshFacebookRanges
             )
         }
     }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FB TOOL - Admin Panel</title>
+    <title>ADMIN PNAL - ALL IN ONE CONTROL</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -33,9 +33,9 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                        FB TOOL Admin Panel
+                        ADMIN PNAL (COMPLETE SYSTEM)
                     </h1>
-                    <p class="text-xs text-sky-400 font-medium">System Configuration, Wallet, & User Control</p>
+                    <p class="text-xs text-sky-400 font-medium">App Master, Terminal Controls, OTP Price, Users & Withdrawals</p>
                 </div>
             </div>
             
@@ -44,7 +44,7 @@
                     <span class="block text-xs text-slate-400">Database Connection</span>
                     <span class="text-xs text-emerald-400 font-semibold flex items-center justify-end">
                         <span class="h-2 w-2 rounded-full bg-emerald-500 inline-block mr-1.5 animate-pulse"></span>
-                        Active (fb-virul-tools)
+                        Active (3s Real-Time Sync)
                     </span>
                 </div>
             </div>
@@ -55,23 +55,8 @@
         
         <!-- Controls & Configuration Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <!-- Set OTP Price Card -->
-            <div class="glass-card p-6 rounded-2xl shadow-xl">
-                <div class="flex items-center justify-between mb-4">
-                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Set OTP Price (৳)</span>
-                    <div class="bg-indigo-500/10 p-2 rounded-lg">
-                        <i class="fa-solid fa-bangladeshi-taka-sign text-indigo-400"></i>
-                    </div>
-                </div>
-                <div class="space-y-3">
-                    <input type="number" id="otp-price-input" step="0.01" min="0" placeholder="e.g. 0.50" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all">
-                    <button onclick="saveOtpPrice()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-xl transition-all text-xs">
-                        SAVE PRICE
-                    </button>
-                </div>
-            </div>
-
-            <!-- App Status Card (On/Off) -->
+            
+            <!-- 1. App Master Power Control (On/Off) -->
             <div class="glass-card p-6 rounded-2xl shadow-xl">
                 <div class="flex items-center justify-between mb-4">
                     <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">App Status Control</span>
@@ -93,25 +78,69 @@
                 </div>
             </div>
 
-            <!-- Total Users Card -->
-            <div class="glass-card p-6 rounded-2xl flex items-center justify-between shadow-xl">
-                <div>
-                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Active Users</span>
-                    <h3 id="stat-total-users" class="text-3xl font-bold mt-1 text-white">0</h3>
+            <!-- 2. Terminal Auto System & Manual Numbers Control -->
+            <div class="glass-card p-6 rounded-2xl shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Terminal Controls</span>
+                    <div class="bg-amber-500/10 p-2 rounded-lg">
+                        <i class="fa-solid fa-terminal text-amber-400"></i>
+                    </div>
                 </div>
-                <div class="bg-emerald-500/10 p-3 rounded-xl">
-                    <i class="fa-solid fa-users text-2xl text-emerald-400"></i>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between p-1.5 bg-slate-900/40 rounded-lg border border-slate-800">
+                        <span class="text-xs font-medium text-slate-300">Terminal System</span>
+                        <button id="btn-terminal-toggle" onclick="toggleTerminalStatus()" class="px-2.5 py-1 rounded text-xs font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-500">
+                            ON
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between p-1.5 bg-slate-900/40 rounded-lg border border-slate-800">
+                        <span class="text-xs font-medium text-slate-300">Manual Lines Mode</span>
+                        <button id="btn-manual-toggle" onclick="toggleManualStatus()" class="px-2.5 py-1 rounded text-xs font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-500">
+                            ON
+                        </button>
+                    </div>
+                    <input type="text" id="terminal-notice-input" placeholder="Terminal Disabled Notice" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all">
+                    <button onclick="saveTerminalConfig()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-1.5 rounded-xl transition-all text-xs">
+                        SAVE TERMINAL CONFIG
+                    </button>
                 </div>
             </div>
 
-            <!-- Total Pending Withdrawals -->
-            <div class="glass-card p-6 rounded-2xl flex items-center justify-between shadow-xl">
-                <div>
-                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Pending Withdraws</span>
-                    <h3 id="stat-pending-withdrawals" class="text-3xl font-bold mt-1 text-amber-400">0</h3>
+            <!-- 3. Set OTP Price Card -->
+            <div class="glass-card p-6 rounded-2xl shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Set OTP Price (৳)</span>
+                    <div class="bg-indigo-500/10 p-2 rounded-lg">
+                        <i class="fa-solid fa-bangladeshi-taka-sign text-indigo-400"></i>
+                    </div>
                 </div>
-                <div class="bg-amber-500/10 p-3 rounded-xl">
-                    <i class="fa-solid fa-wallet text-2xl text-amber-400"></i>
+                <div class="space-y-3">
+                    <input type="number" id="otp-price-input" step="0.01" min="0" placeholder="e.g. 0.50" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all">
+                    <button onclick="saveOtpPrice()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-xl transition-all text-xs">
+                        SAVE PRICE
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. Quick Counters (Users & Withdrawals) -->
+            <div class="space-y-4">
+                <div class="glass-card p-4 rounded-2xl flex items-center justify-between shadow-xl">
+                    <div>
+                        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Active Users</span>
+                        <h3 id="stat-total-users" class="text-2xl font-bold text-white">0</h3>
+                    </div>
+                    <div class="bg-emerald-500/10 p-2.5 rounded-xl">
+                        <i class="fa-solid fa-users text-xl text-emerald-400"></i>
+                    </div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl flex items-center justify-between shadow-xl">
+                    <div>
+                        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Pending Withdraws</span>
+                        <h3 id="stat-pending-withdrawals" class="text-2xl font-bold text-amber-400">0</h3>
+                    </div>
+                    <div class="bg-amber-500/10 p-2.5 rounded-xl">
+                        <i class="fa-solid fa-wallet text-xl text-amber-400"></i>
+                    </div>
                 </div>
             </div>
         </div>
@@ -217,8 +246,11 @@
     <script>
         const FIREBASE_DB_URL = "https://fb-virul-tools-default-rtdb.firebaseio.com";
         let isAppOnValue = true;
+        let isTerminalOnValue = true;
+        let isManualOnValue = true;
         let usersData = {};
         let withdrawalsData = {};
+        let currentFullConfig = {};
 
         // On Page Load
         window.addEventListener('DOMContentLoaded', () => {
@@ -232,32 +264,36 @@
             await fetchUsers();
         }
 
-        // Fetch App config (On/Off toggle and status notice)
+        // Fetch App & Terminal config
         async function fetchAppConfig() {
             try {
                 const res = await fetch(`${FIREBASE_DB_URL}/app_config.json`);
                 const config = await res.json() || {};
-                isAppOnValue = config.isAppOn !== false;
+                currentFullConfig = config;
                 
-                const btn = document.getElementById('btn-app-toggle');
-                if (isAppOnValue) {
-                    btn.innerText = "ON";
-                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-500";
-                } else {
-                    btn.innerText = "OFF";
-                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-rose-600 text-white hover:bg-rose-500";
-                }
-
+                // App Power
+                isAppOnValue = (config.status !== "off" && config.isAppOn !== false);
+                updateButtonUi('btn-app-toggle', isAppOnValue);
                 document.getElementById('app-notice-input').value = config.notice || "";
+
+                // Terminal Power
+                isTerminalOnValue = (config.terminal_status !== "off" && config.isTerminalEnabled !== false && config.terminal_enabled !== false);
+                updateButtonUi('btn-terminal-toggle', isTerminalOnValue);
+                document.getElementById('terminal-notice-input').value = config.terminal_notice || "";
+
+                // Manual Numbers Mode
+                isManualOnValue = (config.manual_number_status !== "off" && config.isManualNumbersEnabled !== false && config.manual_numbers_enabled !== false);
+                updateButtonUi('btn-manual-toggle', isManualOnValue);
+
             } catch (err) {
                 console.error(err);
             }
         }
 
-        async function toggleAppStatus() {
-            isAppOnValue = !isAppOnValue;
-            const btn = document.getElementById('btn-app-toggle');
-            if (isAppOnValue) {
+        function updateButtonUi(elementId, isOn) {
+            const btn = document.getElementById(elementId);
+            if (!btn) return;
+            if (isOn) {
                 btn.innerText = "ON";
                 btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-500";
             } else {
@@ -266,13 +302,30 @@
             }
         }
 
+        function toggleAppStatus() {
+            isAppOnValue = !isAppOnValue;
+            updateButtonUi('btn-app-toggle', isAppOnValue);
+        }
+
+        function toggleTerminalStatus() {
+            isTerminalOnValue = !isTerminalOnValue;
+            updateButtonUi('btn-terminal-toggle', isTerminalOnValue);
+        }
+
+        function toggleManualStatus() {
+            isManualOnValue = !isManualOnValue;
+            updateButtonUi('btn-manual-toggle', isManualOnValue);
+        }
+
         async function saveAppConfig() {
             const noticeVal = document.getElementById('app-notice-input').value;
             const payload = {
+                ...currentFullConfig,
                 isAppOn: isAppOnValue,
                 status: isAppOnValue ? "on" : "off",
                 notice: noticeVal || "অ্যাপ বর্তমানে এডমিন দ্বারা বন্ধ রাখা হয়েছে।"
             };
+            currentFullConfig = payload;
 
             try {
                 const res = await fetch(`${FIREBASE_DB_URL}/app_config.json`, {
@@ -281,7 +334,35 @@
                     body: JSON.stringify(payload)
                 });
                 if (res.ok) {
-                    showToast("App Config Saved", "App status and notice updated successfully!", "success");
+                    showToast("App Config Saved", "App Master status and notice updated successfully!", "success");
+                }
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            }
+        }
+
+        async function saveTerminalConfig() {
+            const termNoticeVal = document.getElementById('terminal-notice-input').value;
+            const payload = {
+                ...currentFullConfig,
+                terminal_status: isTerminalOnValue ? "on" : "off",
+                isTerminalEnabled: isTerminalOnValue,
+                terminal_enabled: isTerminalOnValue,
+                terminal_notice: termNoticeVal || "টার্মিনাল সিস্টেম বর্তমানে এডমিন প্যানেল থেকে বন্ধ আছে।",
+                manual_number_status: isManualOnValue ? "on" : "off",
+                isManualNumbersEnabled: isManualOnValue,
+                manual_numbers_enabled: isManualOnValue
+            };
+            currentFullConfig = payload;
+
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/app_config.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showToast("Terminal Config Saved", "Terminal & Manual settings saved (Instant 3s sync to app)!", "success");
                 }
             } catch (err) {
                 showToast("Error", err.message, "error");
@@ -514,7 +595,6 @@
             if (!confirm("Are you sure you want to Reject this withdrawal request? This will refund the amount back to the user's balance.")) return;
 
             try {
-                // Fetch details of this withdrawal to know email and amount to refund
                 const detailsRes = await fetch(`${FIREBASE_DB_URL}/withdrawals/${id}.json`);
                 const item = await detailsRes.json();
                 if (!item) return;
@@ -522,14 +602,11 @@
                 const email = item.email;
                 const refundAmount = parseFloat(item.amount) || 0;
 
-                // Sanitize user email to find them
                 const sanitized = email.trim().toLowerCase().replace(/\./g, '_dot_').replace(/@/g, '_at_');
 
-                // Get current balance
                 const balRes = await fetch(`${FIREBASE_DB_URL}/users/${sanitized}/balance.json`);
                 const currentBalance = await balRes.json() || 0;
 
-                // Refund balance
                 const newBalance = parseFloat(currentBalance) + refundAmount;
                 await fetch(`${FIREBASE_DB_URL}/users/${sanitized}/balance.json`, {
                     method: 'PUT',
@@ -537,7 +614,6 @@
                     body: JSON.stringify(newBalance)
                 });
 
-                // Update status to rejected
                 const res = await fetch(`${FIREBASE_DB_URL}/withdrawals/${id}/status.json`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -554,14 +630,13 @@
             }
         }
 
-        // Show Beautiful Toast Notifications
+        // Show Toast Notifications
         function showToast(title, msg, type) {
             const toast = document.getElementById('toast');
             const toastIcon = document.getElementById('toast-icon');
             const toastTitle = document.getElementById('toast-title');
             const toastMsg = document.getElementById('toast-msg');
 
-            // Setup styling based on type
             if (type === 'success') {
                 toastIcon.className = "h-8 w-8 rounded-full flex items-center justify-center text-white bg-emerald-500 shadow-md";
                 toastIcon.innerHTML = `<i class="fa-solid fa-check"></i>`;
@@ -579,11 +654,9 @@
             toastTitle.innerText = title;
             toastMsg.innerText = msg;
 
-            // Trigger animation in
             toast.classList.remove('translate-y-24', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
 
-            // Trigger animation out after 3.5 seconds
             setTimeout(() => {
                 toast.classList.remove('translate-y-0', 'opacity-100');
                 toast.classList.add('translate-y-24', 'opacity-0');

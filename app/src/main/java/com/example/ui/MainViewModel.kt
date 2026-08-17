@@ -122,6 +122,9 @@ data class AccountCreatorUiState(
     val updateDownloadError: String? = null,
     val showTerminalAutoOtp: Boolean = false,
     val isTerminalRunning: Boolean = false,
+    val isTerminalEnabledByAdmin: Boolean = true,
+    val isManualNumbersEnabledByAdmin: Boolean = true,
+    val terminalDisabledNotice: String = "Terminal is currently disabled by admin.",
     val terminalLogs: List<String> = emptyList(),
     val terminalSuccessCount: Int = 0,
     val terminalNoAccountCount: Int = 0,
@@ -228,7 +231,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (_uiState.value.isLoggedIn) {
                     refreshWalletData()
                 }
-                delay(5_000) // check every 5 seconds for real-time app status & wallet updates
+                delay(3_000) // check every 3 seconds for real-time app & terminal status
             }
         }
     }
@@ -506,12 +509,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun checkAppStatusInternal() {
         val res = AppConfigService.checkAppStatus()
+        val prevTerminalEnabled = _uiState.value.isTerminalEnabledByAdmin
+        
         _uiState.value = _uiState.value.copy(
             isAppOn = res.isAppOn,
             isActivated = true,
             isCheckingAppStatus = false,
-            appStatusMessage = res.message
+            appStatusMessage = res.message,
+            isTerminalEnabledByAdmin = res.isTerminalEnabled,
+            isManualNumbersEnabledByAdmin = res.isManualNumbersEnabled,
+            terminalDisabledNotice = res.terminalDisabledNotice
         )
+
+        // If admin disabled terminal while it was open or running, stop it and notify
+        if (!res.isTerminalEnabled && (_uiState.value.isTerminalRunning || _uiState.value.showTerminalAutoOtp)) {
+            if (_uiState.value.isTerminalRunning) {
+                stopTerminalAutoOtp()
+                appendTerminalLog("[SYSTEM] ⚠️ Terminal was stopped because admin disabled the Terminal feature in Admin Panel.")
+            }
+        }
     }
 
     fun dismissTelegramDialog() {
@@ -768,6 +784,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startTerminalAutoOtp(
         range: String,
+        manualNumbersList: List<String>,
+        useManualMode: Boolean,
         totalAccounts: Int,
         threadCount: Int,
         method: com.example.ui.CreationMethod,
@@ -775,9 +793,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         customPassword: String = "arafat@@##",
         context: Context
     ) {
-        if (range.isBlank() || totalAccounts <= 0) return
+        if (useManualMode && manualNumbersList.isEmpty()) {
+            appendTerminalLog("[ERROR] ❌ Manual numbers list is empty! Please enter numbers line by line.")
+            return
+        }
+        if (!useManualMode && range.isBlank()) {
+            appendTerminalLog("[ERROR] ❌ Range is required in Range mode!")
+            return
+        }
+
+        val totalTasks = if (useManualMode) manualNumbersList.size else totalAccounts.coerceAtLeast(1)
         val threads = threadCount.coerceIn(1, 20)
-        val accountsToCreate = totalAccounts.coerceAtLeast(1)
 
         terminalJob?.cancel()
         _uiState.value = _uiState.value.copy(
@@ -800,7 +826,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         terminalJob = viewModelScope.launch(Dispatchers.IO) {
             appendTerminalLog("[SYSTEM] 🚀 Terminal Engine Started")
-            appendTerminalLog("[CONFIG] Range: $range | Total: $accountsToCreate | Threads: $threads | Method: ${method.title} | Find Account: ${if (isFindAccountEnabled) "ON (Fresh Only)" else "OFF"}")
+            if (useManualMode) {
+                appendTerminalLog("[CONFIG] Mode: 📋 MANUAL NUMBERS (${manualNumbersList.size} numbers loaded) | Threads: $threads | Method: ${method.title} | Find Account: ${if (isFindAccountEnabled) "ON (Fresh Only)" else "OFF"}")
+            } else {
+                appendTerminalLog("[CONFIG] Mode: 🎯 RANGE ($range) | Total: $totalTasks | Threads: $threads | Method: ${method.title} | Find Account: ${if (isFindAccountEnabled) "ON (Fresh Only)" else "OFF"}")
+            }
             if (method == com.example.ui.CreationMethod.NM_LIMIT) {
                 appendTerminalLog("[CONFIG] Custom Password: $targetPassword")
             } else {
@@ -823,52 +853,67 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val existCount = AtomicInteger(0)
             val failedCount = AtomicInteger(0)
 
-            val queue = Channel<Int>(Channel.UNLIMITED)
-            for (i in 1..accountsToCreate) {
-                queue.send(i)
+            data class TaskItem(val index: Int, val manualNumber: String?)
+
+            val queue = Channel<TaskItem>(Channel.UNLIMITED)
+            if (useManualMode) {
+                manualNumbersList.forEachIndexed { idx, num ->
+                    queue.send(TaskItem(idx + 1, num))
+                }
+            } else {
+                for (i in 1..totalTasks) {
+                    queue.send(TaskItem(i, null))
+                }
             }
             queue.close()
 
             val workers = (1..threads).map { threadId ->
                 launch {
-                    for (accountIndex in queue) {
+                    for (task in queue) {
                         if (!isActive) break
-                        appendTerminalLog("[THREAD #$threadId] [Account $accountIndex/$accountsToCreate] ⏳ Requesting phone number for range $range...")
-                        
-                        var phoneNumber: String? = null
-                        try {
-                            phoneNumber = VoltxApiService.fetchPhoneNumber(range)
-                        } catch (e: Exception) {
-                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [ERROR] ${e.message}")
-                        }
+                        val accountIndex = task.index
+                        var finalNumber: String
 
-                        if (phoneNumber.isNullOrBlank()) {
-                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] ⚠️ No number returned. Retrying after 2s...")
-                            delay(2000)
+                        if (useManualMode && !task.manualNumber.isNullOrBlank()) {
+                            finalNumber = task.manualNumber.replace("+", "").trim()
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex/$totalTasks] 📋 Processing Manual Number: +$finalNumber")
+                        } else {
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex/$totalTasks] ⏳ Requesting phone number for range $range...")
+                            
+                            var phoneNumber: String? = null
                             try {
                                 phoneNumber = VoltxApiService.fetchPhoneNumber(range)
                             } catch (e: Exception) {
-                                // ignore
+                                appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [ERROR] ${e.message}")
                             }
-                            if (phoneNumber.isNullOrBlank()) {
-                                appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [FAILED] Could not get phone number. Skipping.")
-                                val curFailed = failedCount.incrementAndGet()
-                                withContext(Dispatchers.Main) {
-                                    _uiState.value = _uiState.value.copy(terminalFailedCount = curFailed)
-                                }
-                                completedCount.incrementAndGet()
-                                continue
-                            }
-                        }
 
-                        val finalNumber = (phoneNumber ?: "").replace("+", "").trim()
-                        appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 📱 Got Number: +$finalNumber")
+                            if (phoneNumber.isNullOrBlank()) {
+                                appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] ⚠️ No number returned. Retrying after 2s...")
+                                delay(2000)
+                                try {
+                                    phoneNumber = VoltxApiService.fetchPhoneNumber(range)
+                                } catch (e: Exception) {
+                                    // ignore
+                                }
+                                if (phoneNumber.isNullOrBlank()) {
+                                    appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] [FAILED] Could not get phone number. Skipping.")
+                                    val curFailed = failedCount.incrementAndGet()
+                                    withContext(Dispatchers.Main) {
+                                        _uiState.value = _uiState.value.copy(terminalFailedCount = curFailed)
+                                    }
+                                    completedCount.incrementAndGet()
+                                    continue
+                                }
+                            }
+                            finalNumber = (phoneNumber ?: "").replace("+", "").trim()
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 📱 Got Number: +$finalNumber")
+                        }
                         
                         // Register into active numbers for real-time OTP tracking
                         withContext(Dispatchers.Main) {
                             val activeItem = VoltxActiveNumber(
                                 phone = finalNumber,
-                                rangeCode = range,
+                                rangeCode = if (useManualMode) "MANUAL" else range,
                                 timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
                             )
                             val updated = _uiState.value.activeNumbers + activeItem
@@ -966,7 +1011,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     activeNumbers = updatedActives
                                 )
                             }
-                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 💾 Auto-saved to Database & account.csv (Total Success: $curSuccess/$accountsToCreate)")
+                            appendTerminalLog("[THREAD #$threadId] [Account $accountIndex] 💾 Auto-saved to Database & account.csv (Total Success: $curSuccess/$totalTasks)")
                         } else {
                             val curFailed = failedCount.incrementAndGet()
                             withContext(Dispatchers.Main) {
